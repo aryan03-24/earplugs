@@ -1241,3 +1241,41 @@ input[type=date]::-webkit-calendar-picker-indicator, input[type=time]::-webkit-c
 .role-circle { background-size: cover !important; background-position: center !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
 .role-circle::after { content: none !important; }
 .poster { background-color: #1c1c1e; }
+
+/* ---------- v7: pitch reports + join the bill ---------- */
+.section-sub { margin: -4px 0 10px; }
+.field-label.left, .link.left { text-align: left; align-self: flex-start; }
+.pitch-report { margin-top: 6px; }
+.pitch-report .band-head.compact { padding-top: 14px; }
+.pitch-attach { background: var(--glass-card); border: 1px solid var(--glass-card-border); border-radius: 16px; padding: 12px 14px; text-align: left; }
+.attach-head { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.attach-ic { width: 38px; height: 46px; border-radius: 6px; background: #fff; color: var(--blue); font-size: 11px; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; box-shadow: inset 0 -12px 0 rgba(20,48,255,.12); }
+.attach-body { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; }
+.bubble-attach { margin: 8px -6px 2px; color: #fff; }
+.bubble-attach .pitch-attach { background: rgba(0,0,0,.25); }
+.bubble.me:has(.bubble-attach) { max-width: 92%; }
+.pitch-tag { align-self: flex-start; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 100px; background: rgba(20,48,255,.25); color: #c7d0ff; }
+.request-target { display: flex; gap: 12px; align-items: center; background: var(--glass-card); border: 1px solid var(--glass-card-border); border-radius: 16px; padding: 12px; }
+.target-art { width: 64px; height: 64px; border-radius: 10px; flex-shrink: 0; }
+.lineup-mini { display: flex; align-items: center; gap: 4px; margin-top: 6px; min-width: 0; }
+.lineup-mini .avatar { border: 1.5px solid #000; margin-left: -6px; font-size: 8px !important; }
+.lineup-mini .avatar:first-child { margin-left: 0; }
+.lineup-mini .muted { margin-left: 6px; }
+.row-thumb { width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; }
+.select-row .row-thumb { margin-right: 2px; }
+.join-card { background: #1c1c1e; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.join-art { width: 64px; height: 64px; border-radius: 10px; flex-shrink: 0; }
+.og-apply:disabled { opacity: .35; }
+.og-status.on { background: var(--blue); color: #fff; }
+.venue-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 6px; }
+.venue-stats div { background: #1c1c1e; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+.venue-stats b { font-size: 20px; }
+.venue-stats span { font-size: 11px; color: var(--muted); }
+.venue-musician { padding-bottom: 60px; }
+.venue-musician .next-pill.as-link { margin-top: 10px; }
+.gigs-cta { margin-top: 22px; }
+
+/* Tickets on the fan profile */
+.ticket-chip { display: flex; width: 250px; background: #1c1c1e; border-radius: 14px; overflow: hidden; }
+.ticket-chip-art { width: 76px; height: 92px; border-radius: 0; flex-shrink: 0; }
+.ticket-chip-body { display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 10px 12px; min-width: 0; border-left: 2px dashed rgba(255,255,255,.15); }

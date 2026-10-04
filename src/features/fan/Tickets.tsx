@@ -21,7 +21,7 @@ export default function Tickets() {
 
   return (
     <Screen tabs>
-      <PageHeader title="My Tickets" />
+      <PageHeader title="My Tickets" back="/profile" />
       <div className="pad-x"><Segmented options={TABS} value={tab} onChange={setTab} full /></div>
       <div className="ticket-list pad-x">
         {rows.length ? rows.map(({ t, show }) => {

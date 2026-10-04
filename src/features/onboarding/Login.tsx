@@ -30,7 +30,7 @@ export default function Login() {
       return
     }
     signIn()
-    nav(state.profile.role === 'musician' ? '/gigs' : '/explore', { replace: true })
+    nav(state.profile.role === 'musician' && state.profile.view !== 'fan' ? '/gigs' : '/explore', { replace: true })
   }
 
   return (

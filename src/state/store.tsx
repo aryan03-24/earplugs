@@ -18,6 +18,7 @@ export interface State {
   friends: Friendship[]
   mediaPrompted: string[] // show ids already asked about
   myShows: Show[] // shows created, hosted or booked by the musician
+  billAdds: string[] // existing shows the musician was added to (join-the-bill requests accepted)
   customVenues: Venue[] // musician's own spots for self-hosted gigs
   checkins: Record<string, string[]> // showId -> checked-in ticket codes
   applications: Application[]
@@ -39,6 +40,7 @@ const EMPTY: State = {
   friends: [],
   mediaPrompted: [],
   myShows: [],
+  billAdds: [],
   customVenues: [],
   checkins: {},
   applications: [],
@@ -79,6 +81,7 @@ export interface Actions {
   removeFriend: (id: string) => void
   updateBand: (b: Partial<BandEdits>) => void
   addShow: (s: Show) => void
+  joinBill: (showId: string) => void
   updateShow: (id: string, patch: Partial<Show>) => void
   addVenue: (v: Venue) => void
   toggleCheckin: (showId: string, code: string) => void
@@ -125,6 +128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeFriend: id => setState(s => ({ ...s, friends: s.friends.filter(f => f.id !== id) })),
     updateBand: b => setState(s => ({ ...s, band: { ...s.band, ...b } })),
     addShow: show => setState(s => ({ ...s, myShows: [...s.myShows, show] })),
+    joinBill: id => setState(s => ({ ...s, billAdds: [...new Set([...s.billAdds, id])] })),
     updateShow: (id, patch) => setState(s => ({ ...s, myShows: s.myShows.map(x => (x.id === id ? { ...x, ...patch } : x)) })),
     addVenue: v => setState(s => ({ ...s, customVenues: [...s.customVenues, v] })),
     toggleCheckin: (showId, code) => setState(s => {
@@ -144,3 +148,7 @@ export function useStore() {
   if (!c) throw new Error('useStore must be used inside <StoreProvider>')
   return c
 }
+
+/** Which side of the app is showing: musicians in "Me" mode see the fan side. */
+export const sideOf = (p: Profile): 'artist' | 'fan' => (p.role === 'musician' && p.view !== 'fan' ? 'artist' : 'fan')
+export const useSide = () => sideOf(useStore().state.profile)

@@ -5,9 +5,20 @@ import type { Application } from '../../types'
 
 /** Accepting an offer books the show and publishes it to fans in Explore. */
 export function useAcceptOffer() {
-  const { addShow, updateApplication } = useStore()
+  const { addShow, updateApplication, joinBill } = useStore()
   const cat = useCatalog()
   return (a: Application) => {
+    // Joining an existing bill adds you to that show's lineup instead of creating a new show.
+    if (a.kind === 'join' && a.joinShowId) {
+      joinBill(a.joinShowId)
+      updateApplication(a.id, {
+        decided: 'Booked', showId: a.joinShowId,
+        messages: [...a.messages, { from: 'me', text: 'We’re in — thank you! See you at load-in.', at: new Date().toISOString() }],
+      })
+      haptic(20)
+      toast('You’re on the bill! Fans can see you in the lineup.')
+      return
+    }
     const venue = cat.venue(a.venueId)
     const showId = uid('show')
     addShow({

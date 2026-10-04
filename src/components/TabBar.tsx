@@ -1,21 +1,21 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { useStore } from '../state/store'
+import { sideOf, useStore } from '../state/store'
 import { haptic } from '../lib/native'
-import { CalendarFill, Chart, Home, PlugIcon, PlusSquare, Search, TicketIcon, User } from './icons'
+import { CalendarFill, Chart, Home, PlugIcon, PlusSquare, User } from './icons'
 
 interface Tab { to: string; label: string; icon: ReactNode; end?: boolean }
 
 /**
  * Floating glass tab bar from the Figma.
- * Musician: Gigs · Analytics · + (new show) · Profile.  Fan: Home · Search · Plugged · Tickets · Profile.
+ * Musician: Gigs · Analytics · + (new show) · Profile.  Fan: Home · Plugged · Profile (Search is on Explore; Tickets live on the profile).
  */
 export function TabBar() {
   const { state } = useStore()
   const p = state.profile
   const avatar = p.photo ? <img src={p.photo} alt="" className="tab-photo" /> : <span className="tab-avatar"><User size={18} /></span>
 
-  const tabs: Tab[] = p.role === 'musician'
+  const tabs: Tab[] = sideOf(p) === 'artist'
     ? [
         { to: '/gigs', label: 'Gigs', icon: <CalendarFill size={24} /> },
         { to: '/analytics', label: 'Analytics', icon: <Chart size={26} /> },
@@ -24,9 +24,7 @@ export function TabBar() {
       ]
     : [
         { to: '/explore', label: 'Home', icon: <Home size={28} /> },
-        { to: '/search', label: 'Search', icon: <Search size={24} /> },
         { to: '/plugged', label: 'Plugged', icon: <PlugIcon size={24} /> },
-        { to: '/tickets', label: 'Tickets', icon: <TicketIcon size={24} />, end: true },
         { to: '/profile', label: 'Profile', icon: avatar },
       ]
 

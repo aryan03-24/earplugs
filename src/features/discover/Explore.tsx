@@ -25,10 +25,6 @@ export default function Explore() {
   const shows = useMemo(() => applyFilters(cat.upcoming, filters, myGenres, cat.venue), [cat, filters, myGenres])
   const toggleFilter = (f: Filter) => setFilters(fs => (fs.includes(f) ? fs.filter(x => x !== f) : [...fs, f]))
 
-  const recommended = useMemo(
-    () => [...shows].sort((a, b) => b.genres.filter(g => myGenres.includes(g)).length - a.genres.filter(g => myGenres.includes(g)).length).slice(0, 6),
-    [shows, myGenres],
-  )
   const liked = useMemo(
     () => cat.bands.filter(b => b.id !== cat.myBand?.id)
       .map(b => ({ b, score: b.genres.filter(x => myGenres.includes(x)).length }))
@@ -60,12 +56,6 @@ export default function Explore() {
             <Empty>No shows match those filters. <button className="link" onClick={() => setFilters([])}>Clear filters</button></Empty>
           )}
 
-          {recommended.length > 0 && myGenres.length > 0 && (
-            <>
-              <SectionHeader title="Recommended" />
-              <Carousel>{recommended.map(s => <ShowCard key={s.id} show={s} />)}</Carousel>
-            </>
-          )}
 
           <SectionHeader title="Bands We Think You’ll Like" to="/more?tab=bands" />
           <BandGrid bands={liked} />

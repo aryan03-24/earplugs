@@ -144,6 +144,11 @@ export interface Application {
   id: string
   venueId: string
   openGigId?: string // set when applying to a posted open gig
+  /** 'venue' = pitch a venue for dates, 'open-gig' = posted slot, 'join' = ask to join an existing bill */
+  kind?: 'venue' | 'open-gig' | 'join'
+  joinShowId?: string
+  /** Snapshot of the pitch report sent with the request. */
+  pitch?: PitchSnapshot
   createdAt: string
   actName: string
   email: string
@@ -166,6 +171,8 @@ export interface Application {
 
 export interface Profile {
   role: Role | null
+  /** Musicians can browse as themselves ("Me") — this switches the whole app to the fan side. */
+  view?: 'artist' | 'fan'
   phone: string
   username: string
   firstName: string
@@ -182,4 +189,28 @@ export interface Profile {
   acceptedTerms: boolean
   onboarded: boolean
   signedIn: boolean
+}
+
+/** The numbers a pitch report carries, frozen at the moment it was sent. */
+export interface PitchSnapshot {
+  range: '7D' | '30D' | '12M' | 'All'
+  generatedAt: string
+  bandName: string
+  city: string
+  followers: number
+  members: string
+  genres: string[]
+  attendance: number
+  attendDelta: number
+  showUp: number
+  repeat: number
+  newFans: number
+  avgTicket: number
+  earnings: number
+  shows: number
+  venues: number
+  series: { label: string; value: number }[]
+  fanCities: { name: string; pct: number }[]
+  recent: { venue: string; city: string; date: string; attended: number }[]
+  clips: string[]
 }

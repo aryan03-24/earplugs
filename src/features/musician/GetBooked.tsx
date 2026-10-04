@@ -1,23 +1,27 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Chip, CloseButton, Logo } from '../../components/ui'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Avatar, Chip, CloseButton, Logo, Poster, Segmented } from '../../components/ui'
 import { ChevronLeft, ChevronRight, Search } from '../../components/icons'
 import { dayKey, keyToDate, MonthCalendar } from '../../components/MonthCalendar'
 import { OPEN_GIGS } from '../../data/seed'
-import { KEY_STATS, RECENT_SHOWS } from '../../data/analytics'
-import { useCatalog } from '../../state/catalog'
+import { RANGES, type Range } from '../../data/analytics'
+import { MY_BAND_ID, useCatalog } from '../../state/catalog'
 import { useStore } from '../../state/store'
-import { ordersFor } from '../../state/ticketing'
-import { formatDate, isPastDate } from '../../lib/format'
+import { formatDate, formatTime, money } from '../../lib/format'
 import { haptic, toast, uid } from '../../lib/native'
+import type { Application } from '../../types'
 import { cityFor, kmFrom, LocationButton, type City } from './BookingLocation'
+import { buildPitch, expectedDraw, PitchAttachment } from './PitchReport'
 
 const MAX_DATES = 3
+const fmtDay = (k: string) => formatDate(keyToDate(k).toISOString(), { weekday: 'short', month: 'short', day: 'numeric' })
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /**
- * Booking application: 1) venue  2) dates  3) send your most recent pitch report.
- * If EarPlug hasn't tracked any of your shows yet, step 3 asks for the missing numbers.
- * Applying to an open gig skips straight to step 3 (venue and date are already known).
+ * Booking request. Every request = your pitch report (loaded from Analytics) + a message.
+ *  - Pitch a venue:      1) venue  2) dates  3) pitch + message
+ *  - Apply to open gig:  ?gig=ID   → straight to pitch + message
+ *  - Join a bill:        ?join=ID  → straight to pitch + message
  */
 export default function GetBooked() {
   const nav = useNavigate()
@@ -26,25 +30,41 @@ export default function GetBooked() {
   const { state, submitApplication } = useStore()
   const band = cat.myBand!
   const openGig = OPEN_GIGS.find(g => g.id === params.get('gig'))
+  const joinShow = params.get('join') ? cat.show(params.get('join')!) : undefined
+  const fixed = !!openGig || !!joinShow
 
   const [city, setCity] = useState<City>(cityFor(state.profile.homeBase))
   const [radius, setRadius] = useState(15)
   const [q, setQ] = useState('')
-  const [venueId, setVenueId] = useState(openGig?.venueId ?? params.get('venue') ?? '')
-  const [dates, setDates] = useState<string[]>(openGig ? [dayKey(new Date(openGig.date))] : [])
+  const [venueId, setVenueId] = useState(openGig?.venueId ?? joinShow?.venueId ?? params.get('venue') ?? '')
+  const [dates, setDates] = useState<string[]>(openGig ? [dayKey(new Date(openGig.date))] : joinShow ? [dayKey(new Date(joinShow.date))] : [])
   const [month, setMonth] = useState(() => { const d = openGig ? new Date(openGig.date) : new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
-  const [step, setStep] = useState(openGig ? 2 : params.get('venue') ? 1 : 0)
-  const [note, setNote] = useState('')
-  const [manual, setManual] = useState({ draw: '', lastShows: '', video: '' })
-
-  // "Tracked" = EarPlug has real numbers from a show you ran or reported.
-  const tracked = state.myShows.some(s => (s.hostedByMe && ordersFor(s, cat.venue(s.venueId), state.tickets).length > 0) || (isPastDate(s.date) && s.attendance != null))
-  const stats = KEY_STATS['30D']
+  const [step, setStep] = useState(fixed ? 2 : params.get('venue') ? 1 : 0)
+  const [range, setRange] = useState<Range>((RANGES as readonly string[]).includes(params.get('range') ?? '') ? (params.get('range') as Range) : '30D')
+  const [message, setMessage] = useState<string | null>(null) // null = use the suggested message
 
   const venues = useMemo(() => cat.venues
     .map(v => ({ v, km: kmFrom(city, v) }))
     .filter(x => x.km <= radius && (!q.trim() || `${x.v.name} ${x.v.city}`.toLowerCase().includes(q.trim().toLowerCase())))
     .sort((a, b) => a.km - b.km), [cat, city, radius, q])
+
+  if (params.get('join') && (!joinShow || joinShow.bandIds.includes(MY_BAND_ID))) return <Navigate to="/gigs" replace />
+
+  const venue = venueId ? cat.venue(venueId) : undefined
+  const pitch = buildPitch(band, state.profile.members, range)
+  const headliner = joinShow ? cat.band(joinShow.bandIds[0]) : undefined
+  const dateText = dates.map(fmtDay).join(' / ')
+  const ask = openGig
+    ? { slot: `${openGig.slot} · ${openGig.setLength} min`, dates: `${fmtDay(dates[0])} · ${formatTime(openGig.date)}` }
+    : joinShow ? { slot: 'Supporting act · 30–40 min', dates: `${fmtDay(dates[0])} · ${formatTime(joinShow.date)}` }
+      : { dates: dateText || 'Fri/Sat, next 6 weeks' }
+
+  const suggested = joinShow
+    ? `Hi ${headliner?.name ?? 'there'} & ${venue?.name}! ${band.name} would love to open for ${joinShow.title} on ${fmtDay(dates[0])}. We average ${pitch.attendance} fans a show with a ${pitch.showUp}% show-up rate, so we’d bring ${expectedDraw(pitch)} of our own. Our pitch report is attached. Happy to play a 30–40 min set.`
+    : openGig
+      ? `Hi ${venue?.name}! ${band.name} would love the ${openGig.slot.toLowerCase()} slot on ${fmtDay(dates[0])}. We average ${pitch.attendance} fans with a ${pitch.showUp}% show-up rate. Full pitch report attached.`
+      : `Hi ${venue?.name ?? 'there'}! ${band.name} would love to play ${dateText || 'a weekend in the next few weeks'}. We’re drawing ${pitch.attendance} fans on average (${pitch.attendDelta > 0 ? `up ${pitch.attendDelta}%` : 'steady'}) and ${pitch.repeat}% come back. Our pitch report is attached.`
+  const text = message ?? suggested
 
   const toggleDate = (k: string) => {
     haptic()
@@ -53,7 +73,6 @@ export default function GetBooked() {
     setDates([...dates, k].sort((a, b) => keyToDate(a).getTime() - keyToDate(b).getTime()))
   }
 
-  const manualOk = tracked || (manual.draw.trim() !== '' && manual.lastShows.trim() !== '')
   const steps: { title: string; valid: boolean; body: ReactNode }[] = [
     {
       title: 'Which venue do you want to play?', valid: !!venueId,
@@ -64,6 +83,7 @@ export default function GetBooked() {
           <div className="choice-list">
             {venues.map(({ v, km }) => (
               <button key={v.id} type="button" className={`select-row${venueId === v.id ? ' on' : ''}`} onClick={() => { setVenueId(v.id); haptic() }}>
+                <Poster hue={v.hue} photo={v.photo} className="row-thumb" />
                 <span className="grow left"><b>{v.name}</b><span className="select-sub">{v.city} · {km.toFixed(1)} km · cap. {v.capacity} · {v.ages}</span></span>
               </button>
             ))}
@@ -78,41 +98,47 @@ export default function GetBooked() {
         <>
           <p className="setup-copy plain center">Pick up to {MAX_DATES} dates that work for you.</p>
           <MonthCalendar month={month} onMonth={setMonth} selected={dates} onSelect={toggleDate} disablePast legend={false} />
-          {dates.length > 0 && <div className="chip-row wrap flush center-h">{dates.map(k => <Chip key={k} blue>{formatDate(keyToDate(k).toISOString(), { weekday: 'short', month: 'short', day: 'numeric' })}</Chip>)}</div>}
+          {dates.length > 0 && <div className="chip-row wrap flush center-h">{dates.map(k => <Chip key={k} blue>{fmtDay(k)}</Chip>)}</div>}
         </>
       ),
     },
     {
-      title: 'Send your pitch', valid: manualOk,
+      title: joinShow ? 'Request to join the bill' : 'Send your pitch', valid: text.trim().length > 0,
       body: (
         <>
-          <div className="pitch-summary">
-            <div className="row between center-v">
-              <div><div className="muted small">To</div><b>{venueId ? cat.venue(venueId).name : '—'}</b></div>
-              <div className="right"><div className="muted small">{dates.length > 1 ? 'Dates' : 'Date'}</div><b>{dates.map(k => formatDate(keyToDate(k).toISOString(), { month: 'short', day: 'numeric' })).join(', ')}</b></div>
-            </div>
-            {openGig && <div className="muted small">{openGig.slot} · {openGig.setLength} min · {openGig.pay ? `$${openGig.pay}` : 'Door split'}</div>}
-          </div>
-
-          {tracked ? (
-            <div className="pitch-attach">
-              <div className="row between center-v"><b>Most recent pitch report</b><Link to="/pitch" className="link small">Preview</Link></div>
-              <div className="muted small">{band.name} · {band.city} · {state.profile.members ? `${state.profile.members} members` : 'Solo'}</div>
-              <div className="analytics-mini">
-                <div><b>{stats.attendance}</b><span>Avg. attendance</span></div>
-                <div><b>{stats.showUp}%</b><span>Show-up rate</span></div>
-                <div><b>${stats.avgTicket}</b><span>Avg. ticket</span></div>
+          {joinShow ? (
+            <div className="request-target">
+              <Poster hue={joinShow.hue} photo={joinShow.poster ?? headliner?.photo} className="target-art" />
+              <div className="grow min0 left">
+                <div className="muted small">JOINING</div>
+                <b className="block">{joinShow.title}</b>
+                <span className="muted small block">{venue?.name} · {fmtDay(dates[0])} · {formatTime(joinShow.date)}</span>
+                <div className="lineup-mini">
+                  {joinShow.bandIds.map(id => cat.band(id)).filter(b => !!b).map(b => <Avatar key={b.id} name={b.name} hue={b.hue} photo={b.photo} size={24} />)}
+                  <span className="muted small">{joinShow.bandIds.length} on the bill + you</span>
+                </div>
               </div>
             </div>
           ) : (
-            <>
-              <p className="setup-copy plain center">EarPlug hasn’t tracked any of your shows yet, so add the numbers venues look for.</p>
-              <label className="labeled-field"><span>Typical draw (people)</span><input inputMode="numeric" value={manual.draw} onChange={e => setManual({ ...manual, draw: e.target.value.replace(/[^\d–-]/g, '') })} /></label>
-              <label className="labeled-field"><span>Last 3 shows & attendance</span><textarea rows={3} value={manual.lastShows} onChange={e => setManual({ ...manual, lastShows: e.target.value })} placeholder="ex. Cornerstone – 74" /></label>
-              <label className="labeled-field"><span>Video link (optional)</span><input inputMode="url" value={manual.video} onChange={e => setManual({ ...manual, video: e.target.value })} /></label>
-            </>
+            <div className="request-target">
+              <Poster hue={venue?.hue ?? 200} photo={venue?.photo} className="target-art" />
+              <div className="grow min0 left">
+                <div className="muted small">TO</div>
+                <b className="block">{venue?.name}</b>
+                <span className="muted small block">{dateText}{openGig ? ` · ${openGig.slot} · ${openGig.pay ? money(openGig.pay) : 'Door split'}` : ''}</span>
+              </div>
+            </div>
           )}
-          <label className="labeled-field"><span>Note to the venue (optional)</span><textarea rows={3} value={note} onChange={e => setNote(e.target.value)} /></label>
+
+          <div className="field-label left">Pitch report from your Analytics</div>
+          <Segmented options={RANGES} value={range} onChange={setRange} full />
+          <PitchAttachment pitch={pitch} band={band} cat={cat} venueCity={venue?.city} ask={ask} />
+
+          <label className="labeled-field">
+            <span>Message</span>
+            <textarea rows={6} value={text} onChange={e => setMessage(e.target.value)} />
+          </label>
+          {message !== null && <button type="button" className="link small left" onClick={() => setMessage(null)}>Use suggested message</button>}
         </>
       ),
     },
@@ -121,42 +147,44 @@ export default function GetBooked() {
   const last = step === steps.length - 1
 
   const send = () => {
-    const v = cat.venue(venueId)
+    if (!venue) return
     const sorted = dates.map(keyToDate).sort((a, b) => a.getTime() - b.getTime())
-    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    submitApplication({
-      id: uid('app'), venueId, openGigId: openGig?.id, createdAt: new Date().toISOString(),
-      actName: band.name, email: '', members: state.profile.members, targetStart: iso(sorted[0]), targetEnd: iso(sorted[sorted.length - 1]),
-      website: '', draw: tracked ? `${stats.attendance} avg` : manual.draw, soundsLike: '', videos: manual.video ? [manual.video] : [], genres: band.genres,
-      lastShows: tracked ? RECENT_SHOWS.slice(0, 3).map(s => `${s.venue} (${s.attended})`).join(', ') : manual.lastShows, bill: '',
-      offerDate: openGig?.date,
-      messages: [{ from: 'me', text: note.trim() || `Hi ${v.name}! ${band.name} would love to play ${sorted.map(d => formatDate(d.toISOString(), { month: 'short', day: 'numeric' })).join(' / ')}. ${tracked ? 'Our pitch report is attached.' : `We usually draw ${manual.draw} people.`}`, at: new Date().toISOString() }],
-    })
+    const app: Application = {
+      id: uid('app'), venueId, kind: joinShow ? 'join' : openGig ? 'open-gig' : 'venue',
+      openGigId: openGig?.id, joinShowId: joinShow?.id, createdAt: new Date().toISOString(),
+      actName: band.name, email: '', members: state.profile.members,
+      targetStart: iso(sorted[0]), targetEnd: iso(sorted[sorted.length - 1]),
+      website: '', draw: expectedDraw(pitch), soundsLike: '', videos: [], genres: band.genres,
+      lastShows: pitch.recent.map(r => `${r.venue} (${r.attended})`).join(', '), bill: '',
+      offerDate: openGig?.date ?? joinShow?.date, pitch,
+      messages: [{ from: 'me', text: text.trim(), at: new Date().toISOString() }],
+    }
+    submitApplication(app)
     haptic(30)
-    toast(`Sent to ${v.name}`)
-    nav('/applications', { replace: true })
+    toast(joinShow ? `Request sent to ${headliner?.name ?? venue.name}` : `Pitch sent to ${venue.name}`)
+    nav(`/bookings/${app.id}`, { replace: true })
   }
 
   const next = () => {
-    if (!cur.valid) { toast(step === 0 ? 'Choose a venue' : step === 1 ? 'Pick at least one date' : 'Add your typical draw and last shows'); return }
+    if (!cur.valid) { toast(step === 0 ? 'Choose a venue' : step === 1 ? 'Pick at least one date' : 'Write a message'); return }
     haptic()
     if (last) send(); else setStep(s => s + 1)
   }
-  const back = () => (step === 0 || (openGig && step === 2) ? nav(-1) : setStep(s => s - 1))
+  const back = () => (step === 0 || (fixed && step === 2) || (params.get('venue') && step === 1) ? nav(-1) : setStep(s => s - 1))
 
   return (
     <div className="screen setup">
       <div className="setup-top">
         <div className="row between center-v"><span style={{ width: 32 }} /><Logo size={48} /><CloseButton /></div>
         <h1 className="setup-title">{cur.title}</h1>
-        <div className="progress"><div style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
+        <div className="progress"><div style={{ width: fixed ? '100%' : `${((step + 1) / steps.length) * 100}%` }} /></div>
       </div>
       <form className="setup-body" onSubmit={e => { e.preventDefault(); next() }}>
         {cur.body}
         {last ? (
           <div className="step-footer">
             <button type="button" className="round-btn" aria-label="Back" onClick={back}><ChevronLeft size={24} /></button>
-            <button type="submit" className="next-pill" disabled={!cur.valid}>SEND PITCH</button>
+            <button type="submit" className="next-pill" disabled={!cur.valid}>{joinShow ? 'REQUEST TO JOIN' : 'SEND PITCH'}</button>
           </div>
         ) : (
           <>

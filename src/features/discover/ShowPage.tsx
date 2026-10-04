@@ -4,7 +4,7 @@ import { Avatar, Chip, GlassButton, GlassLink, Logo, Poster, Sheet } from '../..
 import { Bookmark, Close, Pin, Share, TicketIcon } from '../../components/icons'
 import { FRIENDS } from '../../data/seed'
 import { MY_BAND_ID, useCatalog } from '../../state/catalog'
-import { useStore } from '../../state/store'
+import { sideOf, useStore } from '../../state/store'
 import { availability } from '../../state/ticketing'
 import { formatDate, formatTime, isPastDate, money } from '../../lib/format'
 import { haptic, share, toast } from '../../lib/native'
@@ -24,7 +24,8 @@ export default function ShowPage() {
   const saved = state.saved.includes(show.id)
   const myTickets = state.tickets.filter(t => t.showId === show.id && !t.transferredTo)
   const past = isPastDate(show.date)
-  const isMine = show.bandIds.includes(MY_BAND_ID) && state.profile.role === 'musician'
+  const artistSide = sideOf(state.profile) === 'artist'
+  const isMine = show.bandIds.includes(MY_BAND_ID) && artistSide
   const plugging = FRIENDS.slice(0, Math.min(FRIENDS.length, show.plugging))
   const tiers = availability(show, v, state.tickets)
   const left = tiers.reduce((n, t) => n + t.left, 0)
@@ -137,7 +138,9 @@ export default function ShowPage() {
 
       {!past && (
         <div className="ticket-bar">
-          {isMine ? (
+          {artistSide && !isMine && !show.createdByMe ? (
+            <button onClick={() => nav(`/bookings/apply?join=${show.id}`)}>REQUEST TO JOIN THE BILL</button>
+          ) : isMine ? (
             <button onClick={() => nav(show.createdByMe ? `/host/${show.id}` : '/gigs?tab=shows')}>MANAGE GIG</button>
           ) : show.salesPaused ? (
             <button disabled>SALES PAUSED</button>

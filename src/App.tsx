@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { StoreProvider, useStore } from './state/store'
-import type { Role } from './types'
+import { sideOf, StoreProvider, useStore } from './state/store'
+import type { Profile, Role } from './types'
 import Welcome from './features/onboarding/Welcome'
 import RolePick from './features/onboarding/RolePick'
 import Login from './features/onboarding/Login'
@@ -34,20 +34,22 @@ const HostGig = lazy(() => import('./features/musician/HostGig'))
 const GigDashboard = lazy(() => import('./features/musician/GigDashboard'))
 const DoorCheckin = lazy(() => import('./features/musician/DoorCheckin'))
 
-const homeFor = (role: Role | null) => (role === 'musician' ? '/gigs' : '/explore')
+const homeFor = (p: Profile) => (sideOf(p) === 'artist' ? '/gigs' : '/explore')
 
 /** Requires a signed-in account, and optionally a specific persona. */
 function Guard({ children, role }: { children: ReactNode; role?: Role }) {
   const { state } = useStore()
   const p = state.profile
   if (!p.onboarded || !p.signedIn) return <Navigate to="/" replace />
-  if (role && p.role !== role) return <Navigate to={homeFor(p.role)} replace />
+  // Fan screens follow the side being shown; artist screens need a musician account.
+  if (role === 'fan' && sideOf(p) !== 'fan') return <Navigate to={homeFor(p)} replace />
+  if (role === 'musician' && p.role !== 'musician') return <Navigate to={homeFor(p)} replace />
   return children
 }
 
 function SignedOutOnly({ children }: { children: ReactNode }) {
   const { state } = useStore()
-  return state.profile.onboarded && state.profile.signedIn ? <Navigate to={homeFor(state.profile.role)} replace /> : children
+  return state.profile.onboarded && state.profile.signedIn ? <Navigate to={homeFor(state.profile)} replace /> : children
 }
 
 const any = (el: ReactNode) => <Guard>{el}</Guard>

@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Chip, Empty, Poster } from '../../components/ui'
+import { Carousel, Chip, Empty, Poster, SectionHeader } from '../../components/ui'
 import { Search } from '../../components/icons'
 import { OPEN_GIGS } from '../../data/seed'
-import { APPLY_LABEL, appStatus, useCatalog, useNow } from '../../state/catalog'
+import { APPLY_LABEL, appStatus, MY_BAND_ID, useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { formatDate, formatTime, money } from '../../lib/format'
 import type { OpenGig } from '../../types'
 import { kmFrom, type City } from './BookingLocation'
+import { JoinGigList, useJoinableGigs } from './JoinBill'
 
 const FILTERS = ['Fits my genre', 'This month', 'Paid', 'By distance'] as const
 type Filter = (typeof FILTERS)[number]
@@ -51,22 +52,24 @@ export default function FindGigs({ city, radius }: { city: City; radius: number 
     return list
   }, [q, filters, cat, myGenres, city, radius])
 
+  const joinable = useJoinableGigs({ city, radius }).filter(sh => !sh.bandIds.includes(MY_BAND_ID))
+  const nearVenues = cat.venues.map(v => ({ v, km: kmFrom(city, v) })).filter(x => x.km <= radius).sort((a, b) => a.km - b.km)
+
   return (
     <>
+      <div className="apply-stats pad-x">
+        <Link to="/applications" className="apply-stat"><b>{counts.applied}</b><span>Applied</span></Link>
+        <Link to="/applications?filter=Waiting" className="apply-stat"><b>{counts.viewed}</b><span>Viewed</span></Link>
+        <Link to="/applications?filter=Booked" className="apply-stat blue"><b>{counts.booked}</b><span>Booked</span></Link>
+      </div>
+
+      <SectionHeader title="Open gigs near you" />
       <div className="pad-x">
         <label className="search-bar mt"><Search size={16} /><input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search venues, dates, or genres" aria-label="Search gigs" /></label>
       </div>
       <div className="chip-row wrap mt">
         {FILTERS.map(f => <Chip key={f} active={filters.includes(f)} onClick={() => setFilters(fs => (fs.includes(f) ? fs.filter(x => x !== f) : [...fs, f]))}>{f}</Chip>)}
       </div>
-
-      <div className="apply-stats pad-x">
-        <Link to="/applications" className="apply-stat"><b>{counts.applied}</b><span>Applied</span></Link>
-        <Link to="/applications?status=Under%20review" className="apply-stat"><b>{counts.viewed}</b><span>Viewed</span></Link>
-        <Link to="/applications?status=Booked" className="apply-stat blue"><b>{counts.booked}</b><span>Booked</span></Link>
-      </div>
-
-      <h2 className="block-title">Open gigs near you</h2>
       <div className="open-gigs pad-x">
         {gigs.map(g => {
           const v = cat.venue(g.venueId)
@@ -100,14 +103,23 @@ export default function FindGigs({ city, radius }: { city: City; radius: number 
         {!gigs.length && <Empty>No open gigs within {radius} km of {city}. Try a wider distance or remove a filter.</Empty>}
       </div>
 
-      <div className="pad-x">
-        <div className="pitch-direct">
-          <div><b>Don’t see a fit?</b><div className="muted small">Pitch any venue near {city.split(',')[0]} directly.</div></div>
-        </div>
-        <Link to="/bookings/apply" className="next-pill as-link">GET BOOKED</Link>
-        <Link to="/applications" className="secondary-btn">My applications</Link>
-      </div>
+      <SectionHeader title="Join a bill near you" />
+      <p className="muted small pad-x section-sub">Ask to open for a show already on the calendar.</p>
+      <JoinGigList shows={joinable.slice(0, 3)} empty={`No active gigs within ${radius} km of ${city}.`} />
 
+      <SectionHeader title="Venues near you" />
+      <Carousel>
+        {nearVenues.map(({ v, km }) => (
+          <Link key={v.id} to={`/venue/${v.id}`} className="venue-card">
+            <Poster hue={v.hue} photo={v.photo} label={v.name} />
+            <span className="venue-count">{km.toFixed(1)} km · {cat.showsAt(v.id).length} gigs</span>
+          </Link>
+        ))}
+      </Carousel>
+
+      <div className="pad-x gigs-cta">
+        <Link to="/bookings/apply" className="next-pill as-link">PITCH A VENUE</Link>
+      </div>
     </>
   )
 }

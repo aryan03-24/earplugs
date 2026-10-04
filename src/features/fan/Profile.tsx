@@ -1,30 +1,34 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar, Carousel, Chip, Empty, GlassLink, Logo, Poster, Screen, Sheet } from '../../components/ui'
+import { Avatar, Carousel, Chip, Empty, Logo, Poster, Screen, SectionHeader, Sheet } from '../../components/ui'
 import { Pin, Plus, User } from '../../components/icons'
 import { GENRES } from '../../data/seed'
 import { handleFor, MY_BAND_ID, useCatalog } from '../../state/catalog'
-import { useStore } from '../../state/store'
-import { isPastDate } from '../../lib/format'
-import { resizeImage, toast, uid } from '../../lib/native'
-import { MediaTile } from '../../components/cards'
+import { sideOf, useStore } from '../../state/store'
+import { formatDate, formatTime, isPastDate } from '../../lib/format'
+import { haptic, resizeImage, toast, uid } from '../../lib/native'
+import { MediaTile, ShowCard } from '../../components/cards'
 import type { Band } from '../../types'
 import { SettingsSheet } from '../account/SettingsSheet'
 import ArtistProfile from '../musician/ArtistProfile'
 
 /** /profile: fans see their profile; musicians get the SOBO / Me switch from the Figma. */
 export default function ProfileRoute() {
-  const { state } = useStore()
-  const [view, setView] = useState<'band' | 'me'>('band')
+  const { state, updateProfile } = useStore()
   if (state.profile.role !== 'musician') return <PersonalProfile />
-  const toggle = <ProfileToggle band={state.profile.artistName || 'Band'} value={view} onChange={setView} />
+  const view = sideOf(state.profile) === 'artist' ? 'band' : 'me'
+  const toggle = <ProfileToggle band={state.profile.artistName || 'Artist'} value={view} onChange={v => {
+    updateProfile({ view: v === 'me' ? 'fan' : 'artist' })
+    haptic()
+    toast(v === 'me' ? 'Browsing as you' : `Back to ${state.profile.artistName || 'your artist page'}`)
+  }} />
   return view === 'band' ? <ArtistProfile toggle={toggle} /> : <PersonalProfile toggle={toggle} />
 }
 
 export function ProfileToggle({ band, value, onChange }: { band: string; value: 'band' | 'me'; onChange: (v: 'band' | 'me') => void }) {
   return (
     <div className="mini-seg" role="tablist" aria-label="Profile">
-      <button role="tab" aria-selected={value === 'band'} className={value === 'band' ? 'on' : ''} onClick={() => onChange('band')}>{band.toUpperCase().slice(0, 8)}</button>
+      <button role="tab" aria-selected={value === 'band'} className={value === 'band' ? 'on' : ''} onClick={() => onChange('band')}>{band.length > 10 ? `${band.slice(0, 9)}…` : band}</button>
       <button role="tab" aria-selected={value === 'me'} className={value === 'me' ? 'on' : ''} onClick={() => onChange('me')}>Me</button>
     </div>
   )
@@ -59,8 +63,13 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
   const venuesVisited = new Set(ticketShows.filter(s => isPastDate(s.date)).map(s => s.venueId)).size
   const topBands = state.following.map(id => cat.band(id)).filter((b): b is Band => !!b && b.id !== MY_BAND_ID)
   const saved = state.saved.map(id => cat.show(id)).filter(s => !!s)
-  const upcomingTicket = state.tickets.find(t => { const s = cat.anyShow(t.showId); return s && !isPastDate(s.date) && !t.transferredTo })
-  const ticketShow = upcomingTicket ? cat.anyShow(upcomingTicket.showId) : undefined
+  // Upcoming tickets grouped by order (two GA tickets bought together show as one pass).
+  const ticketOrders = [...new Map(state.tickets
+    .filter(t => !t.transferredTo)
+    .map(t => ({ t, show: cat.anyShow(t.showId) }))
+    .filter((x): x is { t: typeof x.t; show: NonNullable<typeof x.show> } => !!x.show && !x.show.cancelled && !isPastDate(x.show.date))
+    .sort((a, b) => a.show.date.localeCompare(b.show.date))
+    .map(x => [x.t.orderId ?? x.t.id, { ...x, count: state.tickets.filter(o => o.orderId === x.t.orderId && !o.transferredTo).reduce((n, o) => n + o.qty, 0) || x.t.qty }])).values()]
 
   return (
     <Screen tabs>
@@ -101,6 +110,23 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
         <div className="stat-card"><b>{venuesVisited}</b><span>Venues<br />Visited</span></div>
       </div>
 
+      {/* Tickets live on the profile (no separate tab). One pass per order, soonest first. */}
+      <SectionHeader title="My Tickets" to="/tickets" />
+      {ticketOrders.length ? (
+        <Carousel>
+          {ticketOrders.map(({ t, show, count }) => (
+            <Link key={t.id} to={`/tickets/${t.id}`} className="ticket-chip">
+              <Poster hue={show.hue} photo={show.poster ?? cat.band(show.bandIds[0])?.photo} className="ticket-chip-art" />
+              <div className="ticket-chip-body">
+                <b className="ellipsis block">{show.title}</b>
+                <span className="small">{formatDate(show.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTime(show.date)}</span>
+                <span className="ticket-qty">{count} × {t.tierName}</span>
+              </div>
+            </Link>
+          ))}
+        </Carousel>
+      ) : <Empty>No upcoming tickets. <Link to="/explore" className="link">Find a show</Link></Empty>}
+
       <h2 className="block-title">My Top Bands</h2>
       {topBands.length ? (
         <div className="top-bands pad-x">
@@ -122,16 +148,11 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
         ? <Carousel>{state.media.map(m => <MediaTile key={m.id} media={m} caption={m.showId ? cat.anyShow(m.showId)?.title : undefined} />)}</Carousel>
         : <Empty>After you go to a show, add a photo or video from it here.</Empty>}
 
-      <div className="two-col pad-x">
-        <div>
-          <div className="row between center-v"><h2 className="block-title flush">My Saved</h2><GlassLink to="/plugged" label="All saved" size={26} /></div>
-          {saved[0] ? <Link to={`/show/${saved[0].id}`}><Poster hue={saved[0].hue} label={saved[0].title} className="tile" photo={saved[0].poster ?? cat.band(saved[0].bandIds[0])?.photo} /></Link> : <div className="tile empty-tile">Nothing saved</div>}
-        </div>
-        <div>
-          <div className="row between center-v"><h2 className="block-title flush">My Tickets</h2><GlassLink to="/tickets" label="All tickets" size={26} /></div>
-          {ticketShow && upcomingTicket ? <Link to={`/tickets/${upcomingTicket.id}`}><Poster hue={ticketShow.hue} label={ticketShow.title} className="tile" photo={ticketShow.poster} /></Link> : <div className="tile empty-tile">No tickets yet</div>}
-        </div>
-      </div>
+      <SectionHeader title="My Saved" to="/plugged" />
+      {saved.length
+        ? <Carousel>{saved.map(sh => <ShowCard key={sh.id} show={sh} />)}</Carousel>
+        : <Empty>Tap the bookmark on any show to save it.</Empty>}
+
       {toggle && <div className="pad-x"><button className="secondary-btn" onClick={() => setSettings(true)}>Settings</button></div>}
 
       <Sheet open={editing === 'profile'} onClose={() => setEditing(null)} title="Edit profile">

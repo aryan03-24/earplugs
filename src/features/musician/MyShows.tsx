@@ -20,18 +20,21 @@ const hhmm = (t?: string) => (t ? new Date(`2000-01-01T${t}`).toLocaleTimeString
 /** "My shows" (Gigs Page 2 – Artist): month calendar + the selected day's shows. */
 export default function MyShows() {
   const now = useNow(5000)
+  const cat = useCatalog()
   const { state } = useStore()
   const today = new Date()
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
 
   const entries = useMemo<Entry[]>(() => {
     const shows: Entry[] = state.myShows.filter(s => !s.cancelled).map(s => ({ kind: 'show', date: new Date(s.date), show: s, status: s.draft ? 'Draft' : 'Confirmed' }))
+    // Bills you were added to (accepted join requests) also go on your calendar.
+    const joined: Entry[] = state.billAdds.map(id => cat.show(id)).filter((s): s is Show => !!s).map(s => ({ kind: 'show', date: new Date(s.date), show: s, status: 'Confirmed' }))
     const apps: Entry[] = state.applications
       .map(a => ({ a, st: appStatus(a, now) }))
       .filter(x => x.st === 'Not reviewed' || x.st === 'Under review' || x.st === 'Offered')
       .map(x => ({ kind: 'app', date: new Date(offerDate(x.a)), app: x.a, status: x.st === 'Offered' ? 'Offer' : 'Pending' }))
-    return [...shows, ...apps].sort((a, b) => a.date.getTime() - b.date.getTime())
-  }, [state.myShows, state.applications, now])
+    return [...shows, ...joined, ...apps].sort((a, b) => a.date.getTime() - b.date.getTime())
+  }, [state.myShows, state.applications, state.billAdds, cat, now])
 
   const firstUpcoming = entries.find(e => e.date.getTime() >= startOfToday)
   const [month, setMonth] = useState(() => { const d = firstUpcoming?.date ?? today; return new Date(d.getFullYear(), d.getMonth(), 1) })
@@ -82,7 +85,7 @@ function DayCard({ entry, now }: { entry: Entry; now: number }) {
     const v = cat.venue(entry.app.venueId)
     return (
       <Link to={`/bookings/${entry.app.id}`} className="day-card">
-        <div className="row between center-v"><b className="day-card-title">{entry.app.actName} @ {v.name}</b><span className={`entry-pill ${entry.status === 'Offer' ? 'offer' : 'pending'}`}>{entry.status}</span></div>
+        <div className="row between center-v"><b className="day-card-title">{entry.app.joinShowId ? `Join: ${cat.anyShow(entry.app.joinShowId)?.title}` : `${entry.app.actName} @ ${v.name}`}</b><span className={`entry-pill ${entry.status === 'Offer' ? 'offer' : 'pending'}`}>{entry.status}</span></div>
         <div className="day-card-sub">{v.name} · {formatTime(entry.date.toISOString())}</div>
         <div className="day-card-times">{entry.status === 'Offer' ? 'Offer received · tap to review and accept' : 'Application sent · waiting on the venue'}</div>
       </Link>
@@ -97,7 +100,7 @@ function DayCard({ entry, now }: { entry: Entry; now: number }) {
 
   return (
     <div className="day-card">
-      <Link to={`/host/${s.id}`} className="block">
+      <Link to={s.createdByMe ? `/host/${s.id}` : `/show/${s.id}`} className="block">
         <div className="row between center-v"><b className="day-card-title">{title}</b><span className={`entry-pill ${entry.status === 'Draft' ? 'draft' : 'confirmed'}`}>{s.venueApproval === 'pending' ? 'Pending' : entry.status}</span></div>
         <div className="day-card-sub">{v.name} · {formatTime(s.date)}</div>
         {sum ? (
@@ -109,7 +112,7 @@ function DayCard({ entry, now }: { entry: Entry; now: number }) {
         <div className="day-card-times">{times}</div>
       </Link>
       <div className="day-actions">
-        <button onClick={() => nav(`/host/${s.id}/edit`)}>Edit</button>
+        <button onClick={() => nav(`/host/${s.id}/edit`)} disabled={!s.createdByMe}>Edit</button>
         <button onClick={() => share(s.title, `${s.title} at ${v.name}`, `${location.origin}/show/${s.id}`)} disabled={!!s.draft}>Share</button>
         <button className="scan" onClick={() => nav(`/host/${s.id}/door`)} disabled={!s.hostedByMe || !!s.draft}><ScanIcon /> Scan</button>
       </div>

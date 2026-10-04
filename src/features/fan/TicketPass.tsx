@@ -42,7 +42,7 @@ export default function TicketPass() {
   return (
     <div className="screen pass-screen">
       <div className="row between center-v pad-x top-bar">
-        <BackButton to="/tickets" />
+        <BackButton />
         <b className="pass-heading">My Tickets</b>
         <GlassButton aria-label="More options" onClick={() => setSheet('menu')}><More size={16} /></GlassButton>
       </div>

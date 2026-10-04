@@ -9,13 +9,24 @@ import { useAcceptOffer } from './useAcceptOffer'
 
 const TABS = ['Applications', 'Offers', 'Messages Sent'] as const
 type Tab = (typeof TABS)[number]
-const STATUS_FILTERS: (ApplicationStatus | 'All')[] = ['All', 'Not reviewed', 'Under review', 'Offered', 'Booked', 'Declined']
+// Four simple buckets instead of every raw status. Offers have their own tab.
+const FILTERS = ['Active', 'Waiting', 'Booked', 'Closed'] as const
+type Filter = (typeof FILTERS)[number]
+const inFilter = (s: ApplicationStatus, f: Filter) =>
+  f === 'Active' ? !['Declined', 'Withdrawn'].includes(s)
+    : f === 'Waiting' ? s === 'Not reviewed' || s === 'Under review'
+      : f === 'Booked' ? s === 'Booked'
+        : s === 'Declined' || s === 'Withdrawn'
+/** Friendlier names for statuses on cards. */
+export const STATUS_LABEL: Record<ApplicationStatus, string> = {
+  'Not reviewed': 'Sent', 'Under review': 'Viewed', Offered: 'Offer', Booked: 'Booked', Declined: 'Declined', Withdrawn: 'Withdrawn',
+}
 
 /** "My Applications" from the Figma: applications, offers and venue messages. Calendar lives in Gigs → My shows. */
 export default function Bookings() {
   const [params, setParams] = useSearchParams()
   const tab = (TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'Applications'
-  const filter = (params.get('status') as ApplicationStatus | 'All') || 'All'
+  const filter = ((FILTERS as readonly string[]).includes(params.get('filter') ?? '') ? params.get('filter') : 'Active') as Filter
   const now = useNow(5000)
   const { state } = useStore()
   const cat = useCatalog()
@@ -24,6 +35,7 @@ export default function Bookings() {
 
   const apps = state.applications.map(a => ({ a, status: appStatus(a, now) }))
   const offers = apps.filter(x => x.status === 'Offered')
+  const shown = apps.filter(x => inFilter(x.status, filter))
 
   return (
     <Screen tabs>
@@ -37,15 +49,13 @@ export default function Bookings() {
       {tab === 'Applications' && (
         <>
           <div className="chip-row padded">
-            {STATUS_FILTERS.map(s => (
-              <Chip key={s} active={filter === s} onClick={() => setParams(s === 'All' ? {} : { status: s }, { replace: true })}>{s === 'Not reviewed' ? 'Applied' : s === 'Under review' ? 'Viewed' : s}</Chip>
+            {FILTERS.map(f => (
+              <Chip key={f} active={filter === f} onClick={() => setParams(f === 'Active' ? {} : { filter: f }, { replace: true })}>{f}</Chip>
             ))}
           </div>
           <div className="app-list pad-x">
-            {apps.filter(x => filter === 'All' || x.status === filter || (filter === 'Under review' && x.status === 'Offered')).map(({ a, status }) => (
-              <AppCard key={a.id} app={a} status={status} onAccept={() => accept(a)} />
-            ))}
-            {!apps.length && <Empty>No applications yet. Apply to an open gig in <Link to="/gigs" className="link">Find gigs</Link>.</Empty>}
+            {shown.map(({ a, status }) => <AppCard key={a.id} app={a} status={status} onAccept={() => accept(a)} />)}
+            {!shown.length && <Empty>{apps.length ? 'Nothing here.' : <>No requests yet. Find a gig in <Link to="/gigs" className="link">Gigs</Link>.</>}</Empty>}
           </div>
         </>
       )}
@@ -85,23 +95,23 @@ export function AppCard({ app, status, onAccept }: { app: Application; status: A
   const cat = useCatalog()
   const { updateApplication } = useStore()
   const v = cat.venue(app.venueId)
+  const joinShow = app.joinShowId ? cat.anyShow(app.joinShowId) : undefined
+  const sameDay = app.targetStart === app.targetEnd
   return (
     <div className="app-card">
       <Link to={`/bookings/${app.id}`} className="app-card-top">
-        <Poster hue={v.hue} photo={v.photo} className="app-art" label={v.name} />
+        <Poster hue={joinShow?.hue ?? v.hue} photo={joinShow?.poster ?? v.photo} className="app-art" label={v.name} />
         <div className="app-meta">
           <div className="row between center-v">
-            <b>{v.name}</b>
-            <Chip tone={STATUS_TONE[status]}>{status}</Chip>
+            <b className="ellipsis">{joinShow ? joinShow.title : v.name}</b>
+            <Chip tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Chip>
           </div>
-          <div className="muted small">{v.city} · Applied {timeAgo(app.createdAt)}</div>
+          <div className="muted small">{joinShow ? `Join the bill · ${v.name}` : app.kind === 'open-gig' ? `Open gig · ${v.city}` : v.city} · {timeAgo(app.createdAt)}</div>
         </div>
       </Link>
       <div className="app-body">
-        <div className="small"><span className="muted">Average Audience:</span> {app.draw || '—'}</div>
-        <div className="chip-row">{app.genres.map(g => <Chip key={g} blue>{g}</Chip>)}</div>
-        <div className="small"><span className="muted">Last Shows:</span> {app.lastShows || '—'}</div>
-        <div className="small"><span className="muted">Target Dates:</span> {formatDate(`${app.targetStart}T12:00`, { month: 'short', day: 'numeric' })} – {formatDate(`${app.targetEnd}T12:00`, { month: 'short', day: 'numeric' })}</div>
+        {app.pitch && <div className="pitch-tag">Pitch report · {app.pitch.attendance} avg · {app.pitch.showUp}% show-up</div>}
+        <div className="small"><span className="muted">{sameDay ? 'Date' : 'Dates'}:</span> {formatDate(`${app.targetStart}T12:00`, { month: 'short', day: 'numeric' })}{sameDay ? '' : ` – ${formatDate(`${app.targetEnd}T12:00`, { month: 'short', day: 'numeric' })}`} · <span className="muted">Draw:</span> {app.draw || '—'}</div>
         {status === 'Offered' && <div className="offer-line">Offer: {shortDate(offerDate(app))} at {formatTime(offerDate(app))}</div>}
       </div>
       {status === 'Offered' && (

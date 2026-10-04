@@ -36,11 +36,20 @@ export function useCatalog() {
   const { state } = useStore()
   return useMemo(() => {
     const mine = myBand(state)
-    const bands = mine ? [mine, ...BANDS] : BANDS
-    const shows = [...SHOWS, ...state.myShows.filter(s => !s.cancelled && !s.draft)]
+    // If the musician's stage name matches a listed band, they *are* that band: it's replaced by theirs
+    // and its shows become their shows (no duplicate "SOBO + SOBO" lineups).
+    const alias = mine ? BANDS.find(b => b.name.trim().toLowerCase() === mine.name.trim().toLowerCase()) : undefined
+    const bands = mine ? [mine, ...BANDS.filter(b => b !== alias)] : BANDS
+    const own = (ids: string[]) => (alias ? [...new Set(ids.map(id => (id === alias.id ? MY_BAND_ID : id)))] : ids)
+    // Bills the musician joined show them in the lineup as a supporting act.
+    const seed = SHOWS.map(s => {
+      const ids = own(s.bandIds)
+      return { ...s, bandIds: state.billAdds.includes(s.id) && !ids.includes(MY_BAND_ID) ? [...ids, MY_BAND_ID] : ids }
+    })
+    const shows = [...seed, ...state.myShows.filter(s => !s.cancelled && !s.draft)]
     const venues = [...VENUES, ...state.customVenues]
     const venue = (id: string): Venue => venues.find(v => v.id === id) ?? VENUES[0]
-    const band = (id: string) => bands.find(b => b.id === id)
+    const band = (id: string) => bands.find(b => b.id === (alias && id === alias.id ? MY_BAND_ID : id))
     const show = (id: string) => shows.find(s => s.id === id)
     const upcoming = shows.filter(s => !isPastDate(s.date)).sort((a, b) => a.date.localeCompare(b.date))
     // The musician's own band also inherits SOBO's past seed shows (demo history).
@@ -113,11 +122,15 @@ export function appMessages(a: Application, venueName: string, now = Date.now())
   const msgs = [...a.messages]
   if (status !== 'Not reviewed' && !a.decided && !msgs.some(m => m.from === 'venue')) {
     const at = new Date(new Date(a.createdAt).getTime() + REVIEW_AFTER).toISOString()
-    msgs.push({ from: 'venue', text: `Thanks ${a.actName}! ${venueName} is reviewing your application.`, at })
+    msgs.push({ from: 'venue', text: a.kind === 'join'
+      ? `Thanks ${a.actName}! We got your pitch report. ${venueName} and the headliner are checking the bill.`
+      : `Thanks ${a.actName}! ${venueName} got your pitch report and is reviewing it.`, at })
   }
   if (status === 'Offered' && !a.decided && !msgs.some(m => m.text.startsWith('Good news'))) {
     const at = new Date(new Date(a.createdAt).getTime() + OFFER_AFTER).toISOString()
-    msgs.push({ from: 'venue', text: `Good news — we’d like to book you. Check the Offers tab to accept.`, at })
+    msgs.push({ from: 'venue', text: a.kind === 'join'
+      ? `Good news — there’s room on the bill for a 30–40 min opening set. Accept to be added to the lineup.`
+      : `Good news — we’d like to book you. Check the Offers tab to accept.`, at })
   }
   return msgs.sort((x, y) => x.at.localeCompare(y.at))
 }

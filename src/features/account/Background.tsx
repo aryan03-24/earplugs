@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Sheet } from '../../components/ui'
 import { FRIENDS } from '../../data/seed'
 import { useCatalog } from '../../state/catalog'
-import { useStore } from '../../state/store'
+import { sideOf, useStore } from '../../state/store'
 import { isPastDate } from '../../lib/format'
 import { resizeImage, toast, uid } from '../../lib/native'
 
@@ -66,7 +66,7 @@ export function MediaPrompt() {
   const [busy, setBusy] = useState(false)
   const [notified, setNotified] = useState(false)
 
-  const pending = state.profile.role === 'fan' && state.profile.signedIn
+  const pending = sideOf(state.profile) === 'fan' && state.profile.signedIn
     ? state.tickets
         .filter(t => !t.transferredTo && !state.mediaPrompted.includes(t.showId))
         .map(t => cat.anyShow(t.showId))
