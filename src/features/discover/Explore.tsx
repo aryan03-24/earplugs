@@ -53,7 +53,7 @@ export default function Explore() {
 
       {view === 'List' ? (
         <>
-          <SectionHeader title={`Popular in ${city}`} to={`/gigs?title=${encodeURIComponent(`Popular in ${city}`)}`} />
+          <SectionHeader title={`Popular in ${city}`} to={`/more?title=${encodeURIComponent(`Popular in ${city}`)}`} />
           {shows.length ? (
             <Carousel>{shows.map(s => <ShowCard key={s.id} show={s} />)}</Carousel>
           ) : (
@@ -67,7 +67,7 @@ export default function Explore() {
             </>
           )}
 
-          <SectionHeader title="Bands We Think You’ll Like" to="/gigs?tab=bands" />
+          <SectionHeader title="Bands We Think You’ll Like" to="/more?tab=bands" />
           <BandGrid bands={liked} />
 
           <SectionHeader title={<>What Your Friends<br />Are Plugging</>} />
@@ -95,7 +95,7 @@ export default function Explore() {
               })}
             </MapContainer>
           </div>
-          <SectionHeader title="More Gigs" to="/gigs" />
+          <SectionHeader title="More Gigs" to="/more" />
           <div className="gig-list">{shows.slice(0, 8).map(s => <GigRow key={s.id} show={s} showShare={false} />)}</div>
         </>
       )}

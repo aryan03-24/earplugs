@@ -17,7 +17,7 @@ export default function ApplicationDetail() {
   const accept = useAcceptOffer()
   const [draft, setDraft] = useState('')
   const app = state.applications.find(a => a.id === id)
-  if (!app) return <Navigate to="/bookings" replace />
+  if (!app) return <Navigate to="/applications" replace />
 
   const venue = cat.venue(app.venueId)
   const status = appStatus(app, now)
@@ -34,7 +34,7 @@ export default function ApplicationDetail() {
 
   return (
     <Screen className="chat-screen">
-      <PageHeader title={venue.name} back="/bookings" />
+      <PageHeader title={venue.name} back="/applications" />
       <div className="pad-x">
         <div className="row gap-sm center-v"><Chip tone={STATUS_TONE[status]}>{status}</Chip><span className="muted small">Applied {timeAgo(app.createdAt)}</span></div>
         <div style={{ height: 12 }} />

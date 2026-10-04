@@ -30,7 +30,7 @@ export function useCatalog() {
   return useMemo(() => {
     const mine = myBand(state)
     const bands = mine ? [mine, ...BANDS] : BANDS
-    const shows = [...SHOWS, ...state.myShows.filter(s => !s.cancelled)]
+    const shows = [...SHOWS, ...state.myShows.filter(s => !s.cancelled && !s.draft)]
     const venues = [...VENUES, ...state.customVenues]
     const venue = (id: string): Venue => venues.find(v => v.id === id) ?? VENUES[0]
     const band = (id: string) => bands.find(b => b.id === id)
@@ -119,3 +119,13 @@ export const STATUS_TONE: Record<ApplicationStatus, 'gray' | 'blue' | 'white' | 
 }
 
 export { isPastDate }
+
+/** Labels used on the Gigs page for application progress. */
+export const APPLY_LABEL: Record<ApplicationStatus, string> = {
+  'Not reviewed': 'Applied', 'Under review': 'Viewed', Offered: 'Offer', Booked: 'Booked', Declined: 'Declined', Withdrawn: 'Withdrawn',
+}
+
+export function handleFor(p: { username: string; firstName: string; lastName: string }) {
+  const slug = (p.username || `${p.firstName}${p.lastName ? '.' + p.lastName : ''}`).toLowerCase().replace(/[^a-z0-9._]/g, '')
+  return '@' + (slug || 'you')
+}

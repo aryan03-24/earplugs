@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Chip, GlassButton, Logo, Poster } from '../../components/ui'
 import { ChevronLeft, ChevronRight, Close, Plus, Trash } from '../../components/icons'
 import { GENRES } from '../../data/seed'
@@ -19,30 +19,40 @@ const TIER_PRESETS: Omit<TicketTier, 'id'>[] = [
   { name: 'VIP', price: 25, qty: 10, note: 'Front row + merch bundle' },
 ]
 
-/** Host a Gig: musicians create and sell tickets to their own shows. Same step layout as onboarding. */
+const localDate = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const localTime = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
+
+/** New show / Edit show: musicians create, edit and sell tickets to their own shows. Same step layout as onboarding. */
 export default function HostGig() {
+  const { id } = useParams()
   const nav = useNavigate()
   const cat = useCatalog()
-  const { state, addShow, addVenue } = useStore()
+  const { state, addShow, addVenue, updateShow } = useStore()
   const band = cat.myBand!
+  const existing = id ? state.myShows.find(s => s.id === id) : undefined
+  const ev = existing ? cat.venue(existing.venueId) : undefined
+  const isFree = existing?.tiers?.length === 1 && existing.tiers[0].price === 0
 
   const [step, setStep] = useState(0)
-  const [title, setTitle] = useState(`${band.name} Live`)
-  const [description, setDescription] = useState('')
-  const [poster, setPoster] = useState<string | undefined>(band.photo)
-  const [date, setDate] = useState(isoIn(14))
-  const [time, setTime] = useState('20:00')
-  const [where, setWhere] = useState<'venue' | 'own'>('own')
-  const [venueId, setVenueId] = useState(cat.venues[0].id)
-  const [own, setOwn] = useState({ name: '', address: '', city: state.profile.homeBase || 'Berkeley, CA', capacity: '80', ages: 'All ages' })
-  const [lineup, setLineup] = useState<string[]>([])
-  const [genres, setGenres] = useState<string[]>(band.genres)
-  const [pricing, setPricing] = useState<'paid' | 'free'>('paid')
-  const [tiers, setTiers] = useState<TicketTier[]>([
+  const [title, setTitle] = useState(existing?.title ?? `${band.name} Live`)
+  const [description, setDescription] = useState(existing?.description ?? '')
+  const [poster, setPoster] = useState<string | undefined>(existing ? existing.poster : band.photo)
+  const [date, setDate] = useState(existing ? localDate(existing.date) : isoIn(14))
+  const [time, setTime] = useState(existing ? localTime(existing.date) : '20:00')
+  const [loadIn, setLoadIn] = useState(existing?.loadIn ?? '17:00')
+  const [setTime_, setSetTime] = useState(existing?.setTime ?? '21:15')
+  const [where, setWhere] = useState<'venue' | 'own'>(ev && !ev.custom ? 'venue' : 'own')
+  const [venueId, setVenueId] = useState(ev && !ev.custom ? ev.id : cat.venues[0].id)
+  const [own, setOwn] = useState({ name: ev?.custom ? ev.name : '', address: ev?.custom ? ev.address : '', city: ev?.custom ? ev.city : state.profile.homeBase || 'Berkeley, CA', capacity: '80', ages: ev?.custom ? ev.ages : 'All ages' })
+  const [lineup, setLineup] = useState<string[]>(existing ? existing.bandIds.filter(b => b !== MY_BAND_ID) : [])
+  const [genres, setGenres] = useState<string[]>(existing?.genres ?? band.genres)
+  const [pricing, setPricing] = useState<'paid' | 'free'>(isFree ? 'free' : 'paid')
+  const [tiers, setTiers] = useState<TicketTier[]>(existing?.tiers && !isFree ? existing.tiers : [
     { id: 'early', ...TIER_PRESETS[0] },
     { id: 'ga', ...TIER_PRESETS[1] },
   ])
-  const [freeCap, setFreeCap] = useState('80')
+  const [freeCap, setFreeCap] = useState(isFree ? String(existing!.tiers![0].qty) : '80')
+  if (id && (!existing || !existing.createdByMe)) return <Navigate to="/gigs?tab=shows" replace />
 
   const when = new Date(`${date}T${time}`)
   const venueName = where === 'own' ? own.name || 'Your spot' : cat.venue(venueId).name
@@ -67,10 +77,15 @@ export default function HostGig() {
     {
       title: 'When is it?', valid: !isNaN(when.getTime()) && when.getTime() > Date.now(),
       body: (
-        <div className="row gap">
-          <label className="dark-field grow"><span>Date</span><input type="date" value={date} min={isoIn(0)} onChange={e => setDate(e.target.value)} /></label>
-          <label className="dark-field grow"><span>Doors</span><input type="time" value={time} onChange={e => setTime(e.target.value)} /></label>
-        </div>
+        <>
+          <label className="dark-field"><span>Date</span><input type="date" value={date} min={isoIn(0)} onChange={e => setDate(e.target.value)} /></label>
+          <div className="row gap">
+            <label className="dark-field grow"><span>Load-in</span><input type="time" value={loadIn} onChange={e => setLoadIn(e.target.value)} /></label>
+            <label className="dark-field grow"><span>Doors</span><input type="time" value={time} onChange={e => setTime(e.target.value)} /></label>
+            <label className="dark-field grow"><span>Your set</span><input type="time" value={setTime_} onChange={e => setSetTime(e.target.value)} /></label>
+          </div>
+          <p className="muted small">Fans see the doors time. Load-in and your set time stay on your calendar.</p>
+        </>
       ),
     },
     {
@@ -167,7 +182,7 @@ export default function HostGig() {
         <div className="review-card">
           <Poster hue={band.hue} photo={poster} className="review-poster" label={title} />
           <dl className="review">
-            <dt>When</dt><dd>{formatDate(when.toISOString(), { weekday: 'short', month: 'short', day: 'numeric' })} · Doors {formatTime(when.toISOString())}</dd>
+            <dt>When</dt><dd>{isNaN(when.getTime()) ? '—' : `${formatDate(when.toISOString(), { weekday: 'short', month: 'short', day: 'numeric' })} · Doors ${formatTime(when.toISOString())}`}</dd>
             <dt>Where</dt><dd>{venueName}{where === 'own' && own.address ? `, ${own.address}` : ''}</dd>
             <dt>Lineup</dt><dd>{[band.name, ...lineup.map(id => cat.band(id)?.name)].join(', ')}</dd>
             <dt>Tickets</dt><dd>{pricing === 'free' ? `Free RSVP · ${capacity} spots` : tiers.map(t => `${t.name} ${money(t.price)} × ${t.qty}`).join('\n')}</dd>
@@ -182,28 +197,38 @@ export default function HostGig() {
   const cur = steps[step]
   const last = step === steps.length - 1
 
-  const publish = () => {
+  const publish = (asDraft = false) => {
     let vId = venueId
-    if (where === 'own') {
+    if (where === 'own' && ev?.custom && ev.name === own.name.trim() && ev.address === own.address.trim()) {
+      vId = ev.id
+    } else if (where === 'own') {
       vId = uid('spot')
       addVenue({ id: vId, name: own.name.trim(), address: own.address.trim(), city: own.city.trim(), lat: 37.87, lng: -122.27, capacity, ages: own.ages, hue: band.hue, custom: true })
     }
-    const id = uid('gig')
     const finalTiers: TicketTier[] = pricing === 'free' ? [{ id: 'rsvp', name: 'Free RSVP', price: 0, qty: capacity }] : tiers
-    addShow({
-      id, title: title.trim(), venueId: vId, bandIds: [MY_BAND_ID, ...lineup], date: when.toISOString(),
-      price: Math.min(...finalTiers.map(t => t.price)), genres: genres.length ? genres : band.genres, hue: band.hue, plugging: 0,
-      createdByMe: true, hostedByMe: true, description: description.trim(), poster, tiers: finalTiers, publishedAt: new Date().toISOString(),
-    })
+    const fields = {
+      title: title.trim(), venueId: vId, bandIds: [MY_BAND_ID, ...lineup], date: when.toISOString(),
+      price: Math.min(...finalTiers.map(t => t.price)), genres: genres.length ? genres : band.genres,
+      description: description.trim(), poster, tiers: finalTiers, loadIn, setTime: setTime_, draft: asDraft,
+    }
     haptic(30)
-    toast('Your gig is live — tickets are on sale')
-    nav(`/host/${id}`, { replace: true })
+    if (existing) {
+      const goingLive = existing.draft && !asDraft
+      updateShow(existing.id, { ...fields, publishedAt: goingLive ? new Date().toISOString() : existing.publishedAt })
+      toast(asDraft ? 'Draft saved' : goingLive ? 'Your gig is live — tickets are on sale' : 'Changes saved. Ticket holders will see the update.')
+      nav(`/host/${existing.id}`, { replace: true })
+      return
+    }
+    const newId = uid('gig')
+    addShow({ id: newId, ...fields, hue: band.hue, plugging: 0, createdByMe: true, hostedByMe: true, publishedAt: asDraft ? undefined : new Date().toISOString() })
+    toast(asDraft ? 'Saved as a draft' : 'Your gig is live — tickets are on sale')
+    nav(asDraft ? '/gigs?tab=shows' : `/host/${newId}`, { replace: true })
   }
 
   const next = () => {
     if (!cur.valid) { toast(step === 1 ? 'Pick a future date and time' : 'Please complete this step'); return }
     haptic()
-    if (last) publish(); else setStep(s => s + 1)
+    if (last) publish(false); else setStep(s => s + 1)
   }
 
   return (
@@ -213,13 +238,14 @@ export default function HostGig() {
           <Logo size={40} />
           <GlassButton aria-label="Close" onClick={() => nav(-1)}><Close size={16} /></GlassButton>
         </div>
-        <div className="eyebrow">Host a Gig · {step + 1} of {steps.length}</div>
+        <div className="eyebrow">{existing ? 'Edit show' : 'New show'} · {step + 1} of {steps.length}</div>
         <h1 className="setup-title">{cur.title}</h1>
         <div className="progress"><div style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
       </div>
       <form className="setup-body" onSubmit={e => { e.preventDefault(); next() }}>
         {cur.body}
-        {last && <button type="submit" className="primary-btn">Publish & start selling</button>}
+        {last && <button type="submit" className="primary-btn">{existing && !existing.draft ? 'Save changes' : 'Publish & start selling'}</button>}
+        {last && (!existing || existing.draft) && <button type="button" className="secondary-btn" onClick={() => publish(true)}>Save as draft</button>}
         {step > 0 && <button type="button" className="prev-btn" aria-label="Previous" onClick={() => setStep(s => s - 1)}><ChevronLeft size={26} /></button>}
         {!last && <button type="submit" className={`next-btn${cur.valid ? '' : ' disabled'}`} aria-label="Next"><ChevronRight size={30} /></button>}
       </form>

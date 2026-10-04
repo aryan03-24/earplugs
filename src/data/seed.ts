@@ -1,7 +1,7 @@
 // Sample content for the prototype. Swap for API calls when a backend exists.
 import live1 from '../assets/live1.jpg'
 import live2 from '../assets/live2.jpg'
-import type { Application, Band, Friend, Show, Venue } from '../types'
+import type { Application, Band, Friend, OpenGig, Show, Venue } from '../types'
 
 export const GENRES = [
   'Hiphop', 'Pop', 'R&B', 'Jazz', 'Country', 'Punk', 'Classical',
@@ -105,3 +105,21 @@ export function seedApplications(actName: string): Application[] {
     },
   ]
 }
+
+function at(offset: number, hour: number, minute = 0) {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString()
+}
+
+/** Slots venues have posted for musicians ("Open gigs near you" on the Gigs page). */
+export const OPEN_GIGS: OpenGig[] = [
+  { id: 'og1', venueId: 'bottom', date: at(35, 21), pay: 300, slot: 'Opener', setLength: 40, genres: ['Indie', 'Rock'], applyBy: at(16, 23, 59) },
+  { id: 'og2', venueId: 'parish', date: at(41, 20, 30), pay: 450, slot: 'Headliner', setLength: 60, genres: ['Alternative', 'Indie'], applyBy: at(20, 23, 59) },
+  { id: 'og3', venueId: 'starry', date: at(12, 20), pay: 200, slot: 'Support', setLength: 45, genres: ['Indie', 'Pop'], applyBy: at(5, 23, 59) },
+  { id: 'og4', venueId: 'eli', date: at(18, 21), pay: 250, slot: 'Headliner', setLength: 50, genres: ['Hiphop', 'R&B'], applyBy: at(9, 23, 59) },
+  { id: 'og5', venueId: 'gilman', date: at(26, 18), pay: 0, slot: 'Opener', setLength: 30, genres: ['Punk', 'Alternative'], applyBy: at(14, 23, 59) },
+  { id: 'og6', venueId: 'freight', date: at(30, 19, 30), pay: 400, slot: 'Headliner', setLength: 75, genres: ['Jazz', 'Classical', 'Country'], applyBy: at(18, 23, 59) },
+  { id: 'og7', venueId: 'cornerstone', date: at(9, 20), pay: 350, slot: 'Support', setLength: 40, genres: ['Rock', 'Alternative'], applyBy: at(4, 23, 59) },
+]

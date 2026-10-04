@@ -1,31 +1,31 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Logo } from '../../components/ui'
+import { Logo, Sheet } from '../../components/ui'
 import { Check, ChevronRight, Plus } from '../../components/icons'
 import { GENRES } from '../../data/seed'
 import { useStore } from '../../state/store'
-import { haptic, resizeImage, toast } from '../../lib/native'
+import { haptic, resizeImage, share, toast } from '../../lib/native'
 import type { Profile } from '../../types'
 
-type StepId = 'phone' | 'code' | 'name' | 'artist' | 'band' | 'photo' | 'home' | 'genres' | 'notif' | 'terms'
+type StepId = 'phone' | 'code' | 'photo' | 'name' | 'artist' | 'home' | 'band' | 'genres' | 'notif' | 'terms'
 
-// Step order follows the Figma onboarding rows for each persona.
+// Step order matches the two onboarding rows in the Figma.
 const STEPS: Record<'fan' | 'musician', StepId[]> = {
-  fan: ['phone', 'code', 'name', 'photo', 'home', 'genres', 'notif', 'terms'],
-  musician: ['phone', 'code', 'artist', 'band', 'photo', 'home', 'genres', 'notif', 'terms'],
+  fan: ['phone', 'code', 'photo', 'name', 'home', 'genres', 'notif', 'terms'],
+  musician: ['phone', 'code', 'photo', 'artist', 'home', 'band', 'genres', 'notif', 'terms'],
 }
 
-const TITLES: Record<StepId, (artist: boolean) => string> = {
-  phone: () => 'What is your phone number?',
-  code: () => 'We texted you a code, drop it here',
-  name: () => 'What is your name?',
-  artist: () => 'What do you go by as an artist?',
-  band: () => 'Tell us about your band!',
-  photo: a => (a ? 'Add a band photo' : 'Add a profile picture'),
-  home: () => 'Where is home for you?',
-  genres: a => (a ? 'What do you play?' : 'What are you plugged into?'),
-  notif: () => 'Stay plugged in.',
-  terms: () => 'Terms and Conditions',
+const TITLES: Record<StepId, string> = {
+  phone: 'What is your phone number?',
+  code: 'We texted you a code, drop it here',
+  photo: 'Add a profile picture & username',
+  name: 'What is your name?',
+  artist: 'What do you go by as an artist?',
+  home: 'Where is home for you?',
+  band: 'Tell us about you &/or your band!',
+  genres: 'What are you plugged into?',
+  notif: 'Stay plugged in.',
+  terms: 'Terms and Conditions',
 }
 
 export default function Setup() {
@@ -33,9 +33,12 @@ export default function Setup() {
   const nav = useNavigate()
   const { state, updateProfile, completeOnboarding } = useStore()
   const [code, setCode] = useState(['', '', '', '', '', ''])
+  const [location, setLocation] = useState<'idle' | 'on' | 'off'>('idle')
+  const [invite, setInvite] = useState(false)
   const p = state.profile
 
-  if (!p.role) return <Navigate to="/" replace />
+  if (!p.role) return <Navigate to="/start" replace />
+  if (p.onboarded && p.signedIn) return <Navigate to={p.role === 'musician' ? '/gigs' : '/explore'} replace />
   const artist = p.role === 'musician'
   const steps = STEPS[p.role]
   const index = Math.max(0, Math.min(steps.length - 1, Number(stepParam) || 0))
@@ -45,11 +48,11 @@ export default function Setup() {
   const valid: Record<StepId, boolean> = {
     phone: p.phone.replace(/\D/g, '').length >= 10,
     code: code.every(Boolean),
+    photo: p.username.trim().length >= 2,
     name: p.firstName.trim().length > 0,
-    artist: p.artistName.trim().length > 0,
-    band: p.firstName.trim().length > 0,
-    photo: true,
+    artist: p.firstName.trim().length > 0,
     home: p.homeBase.trim().length > 0,
+    band: p.artistName.trim().length > 0,
     genres: p.genres.length > 0,
     notif: true,
     terms: p.acceptedTerms,
@@ -57,24 +60,24 @@ export default function Setup() {
 
   const next = () => {
     if (!valid[step]) {
-      toast(step === 'terms' ? 'Please accept the terms to continue' : 'Please fill this in to continue')
+      toast(step === 'terms' ? 'Please accept the terms to continue' : step === 'photo' ? 'Pick a username (2+ characters)' : 'Please fill this in to continue')
       return
     }
     haptic()
     if (step === 'phone') toast('Code sent! (Demo: enter any 6 digits)')
     if (index === steps.length - 1) {
       completeOnboarding()
-      nav(artist ? '/analytics' : '/explore', { replace: true })
+      nav(artist ? '/gigs' : '/explore', { replace: true })
     } else nav(`/setup/${index + 1}`)
   }
 
   return (
     <div className="screen setup">
       <div className="setup-top">
-        <button className="logo-btn" onClick={() => (index === 0 ? nav('/') : nav(-1))} aria-label="Back">
+        <button className="logo-btn" onClick={() => (index === 0 ? nav('/start') : nav(-1))} aria-label="Back">
           <Logo size={40} />
         </button>
-        <h1 className="setup-title">{TITLES[step](artist)}</h1>
+        <h1 className="setup-title">{TITLES[step]}</h1>
         <div className="progress" aria-label={`Step ${index + 1} of ${steps.length}`}>
           <div style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
         </div>
@@ -93,39 +96,49 @@ export default function Setup() {
 
         {step === 'code' && <CodeInput code={code} setCode={setCode} />}
 
-        {step === 'name' && (
+        {step === 'photo' && (
+          <div className="stack center">
+            <label className="photo-picker" aria-label="Upload profile picture">
+              {p.photo ? <img src={p.photo} alt="" /> : <Plus size={36} />}
+              <input type="file" accept="image/*" hidden onChange={async e => {
+                const f = e.target.files?.[0]
+                if (f) set({ photo: await resizeImage(f, 400) })
+              }} />
+            </label>
+            <LightField label="Username" value={p.username} placeholder={artist ? 'sobo.band' : 'anandi.joshi'}
+              onChange={v => set({ username: v.toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 24) })} />
+          </div>
+        )}
+
+        {(step === 'name' || step === 'artist') && (
           <>
-            <LightField label="Name" value={p.firstName} onChange={v => set({ firstName: v })} autoFocus placeholder="Anandi" />
+            <LightField label={step === 'artist' ? 'Name' : 'First Name'} value={p.firstName} onChange={v => set({ firstName: v })} autoFocus placeholder="Anandi" />
             <LightField label="Last Name" value={p.lastName} onChange={v => set({ lastName: v })} placeholder="Joshi" />
           </>
         )}
 
-        {step === 'artist' && (
+        {step === 'home' && (
           <>
-            <LightField label="Artist / Band Name" value={p.artistName} onChange={v => set({ artistName: v })} autoFocus placeholder="SOBO" />
-            <LightField label="Tagline (Optional)" value={p.tagline} onChange={v => set({ tagline: v })} placeholder="Suns Out Buns Out" />
+            <p className="setup-copy"><b>Home Base</b> is where you spend the most time. This can be your college town or home town.</p>
+            <LightField label="Home Base" value={p.homeBase} onChange={v => set({ homeBase: v })} placeholder="Berkeley, CA" autoFocus />
+            <p className="setup-copy">Any other place that’s your home away from home</p>
+            <LightField label="Second Location (Optional)" value={p.secondLocation} onChange={v => set({ secondLocation: v })} placeholder="New York City, NY" />
           </>
         )}
 
         {step === 'band' && (
           <>
-            <LightField label="First Name" value={p.firstName} onChange={v => set({ firstName: v })} autoFocus placeholder="Anandi" />
-            <LightField label="Last Name" value={p.lastName} onChange={v => set({ lastName: v })} placeholder="Joshi" />
-            <LightField label="# of Members" value={p.members} onChange={v => set({ members: v.replace(/\D/g, '') })} placeholder="4" inputMode="numeric" />
-          </>
-        )}
-
-        {step === 'photo' && <PhotoPicker />}
-
-        {step === 'home' && (
-          <>
-            <p className="setup-copy">
-              {artist ? 'We find gigs for you near home, campus, or wherever you spend time.' : <><b>Home Base</b> is where you spend the most time. This can be your college town or home town.</>}
-            </p>
-            <LightField label="Home Base" value={p.homeBase} onChange={v => set({ homeBase: v })} placeholder="Berkeley, CA" autoFocus />
-            <p className="setup-copy">{artist ? 'Where you spend most of your time.' : 'Any other place that’s your home away from home'}</p>
-            <LightField label="Second Location (Optional)" value={p.secondLocation} onChange={v => set({ secondLocation: v })} placeholder="New York City, NY" />
-            {artist && <p className="setup-copy">Any place you call home.</p>}
+            <LightField label="Name of the Band" value={p.artistName} onChange={v => set({ artistName: v })} autoFocus placeholder="SOBO" />
+            <LightField label="Number of Members" value={p.members} onChange={v => set({ members: v.replace(/\D/g, '').slice(0, 2) })} placeholder="4" inputMode="numeric" />
+            <button type="button" className="outline-btn wide" onClick={() => setInvite(true)}>+ Invite members from your band</button>
+            <Sheet open={invite} onClose={() => setInvite(false)} title="Invite your bandmates">
+              <p className="muted small">They’ll join {p.artistName || 'your band'}’s page and can manage gigs with you.</p>
+              <button className="primary-btn" onClick={() => {
+                share(`Join ${p.artistName || 'my band'} on EarPlug`, `Join ${p.artistName || 'my band'} on EarPlug`, location_origin())
+                setInvite(false)
+              }}>Share invite link</button>
+              <button className="secondary-btn" onClick={() => setInvite(false)}>Later</button>
+            </Sheet>
           </>
         )}
 
@@ -145,16 +158,18 @@ export default function Setup() {
 
         {step === 'notif' && (
           <>
-            <p className="setup-copy">Can we send you notifications about {artist ? 'bookings, offers and new fans' : 'gigs and artists you’ll love'}?</p>
+            <p className="setup-copy">Enable your location and notifications for the best experience.</p>
             <div className="stack center">
+              <button type="button" className={`outline-btn${location === 'on' ? ' on' : ''}`} onClick={() => {
+                if (!navigator.geolocation) { setLocation('off'); toast('Location isn’t available on this device'); return }
+                navigator.geolocation.getCurrentPosition(() => { setLocation('on'); toast('Location on') }, () => { setLocation('off'); toast('Location stays off. You can change this later.') }, { timeout: 8000 })
+              }}>{location === 'on' ? '✓ Location enabled' : 'Enable Location'}{location === 'on' && <span className="dot" />}</button>
               <button type="button" className={`outline-btn${p.notifications ? ' on' : ''}`} onClick={async () => {
                 if ('Notification' in window) {
                   try { await Notification.requestPermission() } catch { /* unsupported */ }
                 }
                 set({ notifications: true })
-                next()
-              }}>Enable Notification</button>
-              <button type="button" className="outline-btn" onClick={() => { set({ notifications: false }); next() }}>Maybe Later</button>
+              }}>{p.notifications ? '✓ Notifications on' : 'Enable Notifications'}{p.notifications && <span className="dot" />}</button>
             </div>
           </>
         )}
@@ -164,10 +179,10 @@ export default function Setup() {
             <div className="terms">
               <p>Welcome to EarPlug. By creating an account you agree to:</p>
               <ul>
-                <li>Use EarPlug to discover, share and {artist ? 'book' : 'attend'} live music respectfully.</li>
+                <li>Use EarPlug to discover, share and {artist ? 'host and book' : 'attend'} live music respectfully.</li>
                 <li>Only upload photos and video you have the right to share.</li>
-                <li>Let us use your location and preferences to recommend {artist ? 'venues and fans' : 'shows'}.</li>
-                <li>{artist ? 'Booking terms are agreed directly between you and each venue.' : 'Ticket purchases are handled by the venue or ticket provider.'}</li>
+                <li>Let us use your location and preferences to recommend {artist ? 'gigs and fans' : 'shows'}.</li>
+                <li>{artist ? 'You are responsible for gigs you host and the tickets you sell.' : 'Ticket purchases are final unless the host offers a refund.'}</li>
               </ul>
               <p>You can delete your account and data at any time from your profile.</p>
             </div>
@@ -187,7 +202,9 @@ export default function Setup() {
   )
 }
 
-function formatPhone(v: string) {
+const location_origin = () => window.location.origin
+
+export function formatPhone(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 10)
   if (d.length < 4) return d
   if (d.length < 7) return `(${d.slice(0, 3)}) ${d.slice(3)}`
@@ -205,7 +222,7 @@ function LightField({ label, value, onChange, placeholder, autoFocus, inputMode 
   )
 }
 
-function CodeInput({ code, setCode }: { code: string[]; setCode: (c: string[]) => void }) {
+export function CodeInput({ code, setCode }: { code: string[]; setCode: (c: string[]) => void }) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
   useEffect(() => { refs.current[0]?.focus() }, [])
   return (
@@ -227,23 +244,6 @@ function CodeInput({ code, setCode }: { code: string[]; setCode: (c: string[]) =
           onKeyDown={e => { if (e.key === 'Backspace' && !c && i > 0) refs.current[i - 1]?.focus() }}
         />
       ))}
-    </div>
-  )
-}
-
-function PhotoPicker() {
-  const { state, updateProfile } = useStore()
-  const photo = state.profile.photo
-  return (
-    <div className="stack center">
-      <label className="photo-picker">
-        {photo ? <img src={photo} alt="Profile" /> : <Plus size={36} />}
-        <input type="file" accept="image/*" hidden onChange={async e => {
-          const f = e.target.files?.[0]
-          if (f) updateProfile({ photo: await resizeImage(f, 400) })
-        }} />
-      </label>
-      <p className="setup-copy center">{photo ? 'Looking good! Tap to change.' : 'Tap to upload a photo. You can skip this for now.'}</p>
     </div>
   )
 }

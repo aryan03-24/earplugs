@@ -1,24 +1,19 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Chip, Empty, PageHeader, Poster, Screen, Segmented } from '../../components/ui'
-import { Calendar, Message, Plus } from '../../components/icons'
-import { appMessages, appStatus, MY_BAND_ID, offerDate, STATUS_TONE, useCatalog, useNow } from '../../state/catalog'
+import { Message } from '../../components/icons'
+import { appMessages, appStatus, offerDate, STATUS_TONE, useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
-import { formatDate, formatTime, isPastDate, shortDate, timeAgo } from '../../lib/format'
+import { formatDate, formatTime, shortDate, timeAgo } from '../../lib/format'
 import type { Application, ApplicationStatus } from '../../types'
 import { useAcceptOffer } from './useAcceptOffer'
-import { HostingList } from './HostingList'
 
-const TABS = ['Applications', 'Calendar', 'Offers', 'Messages Sent'] as const
+const TABS = ['Applications', 'Offers', 'Messages Sent'] as const
 type Tab = (typeof TABS)[number]
 const STATUS_FILTERS: (ApplicationStatus | 'All')[] = ['All', 'Not reviewed', 'Under review', 'Offered', 'Booked', 'Declined']
 
-/**
- * Musician's gigs hub. "Hosting" = gigs they run and sell tickets for themselves.
- * "Booking" = the Figma's "My Applications" with its four sidebar sections as tabs.
- */
+/** "My Applications" from the Figma: applications, offers and venue messages. Calendar lives in Gigs → My shows. */
 export default function Bookings() {
   const [params, setParams] = useSearchParams()
-  const view = params.get('view') === 'booking' || params.has('tab') || params.has('status') ? 'Booking' : 'Hosting'
   const tab = (TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'Applications'
   const filter = (params.get('status') as ApplicationStatus | 'All') || 'All'
   const now = useNow(5000)
@@ -29,34 +24,27 @@ export default function Bookings() {
 
   const apps = state.applications.map(a => ({ a, status: appStatus(a, now) }))
   const offers = apps.filter(x => x.status === 'Offered')
-  const myShows = cat.showsFor(MY_BAND_ID).filter(s => !isPastDate(s.date))
-  const setTab = (t: Tab) => setParams(t === 'Applications' ? { view: 'booking' } : { tab: t })
 
   return (
     <Screen tabs>
-      <PageHeader title={view === 'Hosting' ? 'My Gigs' : 'My Applications'} right={
-        view === 'Hosting'
-          ? <Link to="/host/new" className="small-pill white"><Plus size={12} /> Host a Gig</Link>
-          : <Link to="/bookings/apply" className="small-pill white">Get Booked</Link>
-      } />
-      <div className="pad-x"><Segmented options={['Hosting', 'Booking'] as const} value={view} onChange={v => setParams(v === 'Booking' ? { view: 'booking' } : {})} full /></div>
-      {view === 'Hosting' ? <HostingList /> : <>
-      <div className="tab-scroller">
-        <Segmented options={TABS} value={tab} onChange={setTab} labels={{ Offers: `Offers${offers.length ? ` (${offers.length})` : ''}`, 'Messages Sent': 'Messages' }} />
+      <PageHeader title="My Applications" back="/gigs" right={<Link to="/bookings/apply" className="small-pill white">Get Booked</Link>} />
+      <div className="pad-x">
+        <Segmented options={TABS} value={tab} onChange={t => setParams(t === 'Applications' ? {} : { tab: t }, { replace: true })} full
+          labels={{ Offers: `Offers${offers.length ? ` (${offers.length})` : ''}`, 'Messages Sent': 'Messages' }} />
       </div>
 
       {tab === 'Applications' && (
         <>
           <div className="chip-row padded">
             {STATUS_FILTERS.map(s => (
-              <Chip key={s} active={filter === s} onClick={() => setParams(s === 'All' ? { view: 'booking' } : { status: s })}>{s}</Chip>
+              <Chip key={s} active={filter === s} onClick={() => setParams(s === 'All' ? {} : { status: s }, { replace: true })}>{s === 'Not reviewed' ? 'Applied' : s === 'Under review' ? 'Viewed' : s}</Chip>
             ))}
           </div>
           <div className="app-list pad-x">
-            {apps.filter(x => filter === 'All' || x.status === filter).map(({ a, status }) => (
+            {apps.filter(x => filter === 'All' || x.status === filter || (filter === 'Under review' && x.status === 'Offered')).map(({ a, status }) => (
               <AppCard key={a.id} app={a} status={status} onAccept={() => accept(a)} />
             ))}
-            {!apps.length && <Empty>No applications yet. Tap <b>Get Booked</b> to apply to a venue.</Empty>}
+            {!apps.length && <Empty>No applications yet. Apply to an open gig in <Link to="/gigs" className="link">Find gigs</Link>.</Empty>}
           </div>
         </>
       )}
@@ -68,36 +56,8 @@ export default function Bookings() {
         </div>
       )}
 
-      {tab === 'Calendar' && (
-        <div className="pad-x">
-          <h2 className="sub-h">Booked shows</h2>
-          {myShows.length ? (
-            <div className="list-card">
-              {myShows.map(s => (
-                <Link key={s.id} to={`/show/${s.id}`} className="recent-row">
-                  <div className="date-box"><small>{formatDate(s.date, { month: 'short' }).toUpperCase()}</small><b>{new Date(s.date).getDate()}</b></div>
-                  <div className="grow min0"><b>{s.title}</b><div className="muted small">{cat.venue(s.venueId).name} · {formatTime(s.date)}</div></div>
-                </Link>
-              ))}
-            </div>
-          ) : <Empty>No booked shows yet. Accept an offer or host a gig.</Empty>}
-
-          <h2 className="sub-h">Holds & target dates</h2>
-          <div className="list-card">
-            {apps.filter(x => x.status !== 'Booked' && x.status !== 'Declined' && x.status !== 'Withdrawn').map(({ a, status }) => (
-              <button key={a.id} className="recent-row" onClick={() => nav(`/bookings/${a.id}`)}>
-                <span className="cal-ic"><Calendar /></span>
-                <div className="grow min0 left"><b>{cat.venue(a.venueId).name}</b><div className="muted small">{formatDate(`${a.targetStart}T12:00`, { month: 'short', day: 'numeric' })} – {formatDate(`${a.targetEnd}T12:00`, { month: 'short', day: 'numeric' })}</div></div>
-                <Chip tone={STATUS_TONE[status]}>{status}</Chip>
-              </button>
-            ))}
-            {!apps.some(x => !['Booked', 'Declined', 'Withdrawn'].includes(x.status)) && <p className="muted small pad-in">Nothing on hold.</p>}
-          </div>
-        </div>
-      )}
-
       {tab === 'Messages Sent' && (
-        <div className="pad-x">
+        <div className="pad-x mt">
           <div className="list-card">
             {apps.map(({ a }) => {
               const msgs = appMessages(a, cat.venue(a.venueId).name, now)
@@ -116,7 +76,6 @@ export default function Bookings() {
           </div>
         </div>
       )}
-      </>}
     </Screen>
   )
 }

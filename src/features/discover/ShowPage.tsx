@@ -8,7 +8,6 @@ import { useStore } from '../../state/store'
 import { availability } from '../../state/ticketing'
 import { formatDate, formatTime, isPastDate, money } from '../../lib/format'
 import { haptic, share, toast } from '../../lib/native'
-import { Checkout } from '../fan/Checkout'
 
 /** Show Page – Fan View from the Figma, with live ticket availability. */
 export default function ShowPage() {
@@ -16,7 +15,7 @@ export default function ShowPage() {
   const nav = useNavigate()
   const cat = useCatalog()
   const { state, toggle } = useStore()
-  const [sheet, setSheet] = useState<'tickets' | 'friends' | null>(null)
+  const [sheet, setSheet] = useState<'friends' | null>(null)
   const show = cat.show(id ?? '')
   if (!show) return <Navigate to="/explore" replace />
 
@@ -139,18 +138,16 @@ export default function ShowPage() {
       {!past && (
         <div className="ticket-bar">
           {isMine ? (
-            <button onClick={() => nav(`/host/${show.id}`)}>MANAGE GIG</button>
+            <button onClick={() => nav(show.createdByMe ? `/host/${show.id}` : '/gigs?tab=shows')}>MANAGE GIG</button>
           ) : show.salesPaused ? (
             <button disabled>SALES PAUSED</button>
           ) : soldOut ? (
             <button disabled>SOLD OUT</button>
           ) : (
-            <button onClick={() => setSheet('tickets')}>{maxPrice === 0 ? 'RSVP' : myTickets.length ? 'GET MORE TICKETS' : 'GET TICKETS'}</button>
+            <button onClick={() => nav(`/show/${show.id}/tickets`)}>{maxPrice === 0 ? 'RSVP' : myTickets.length ? 'GET MORE TICKETS' : 'GET TICKETS'}</button>
           )}
         </div>
       )}
-
-      <Checkout show={show} venue={v} open={sheet === 'tickets'} onClose={() => setSheet(null)} />
 
       <Sheet open={sheet === 'friends'} onClose={() => setSheet(null)} title="Who’s Plugging In">
         {plugging.length ? (

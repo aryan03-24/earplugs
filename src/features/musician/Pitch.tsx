@@ -33,7 +33,7 @@ export default function Pitch() {
       messages: [{ from: 'me', text: `Pitch report attached: avg. attendance ${stats.attendance}, show-up ${stats.showUp}%, $${stats.avgTicket} avg ticket.`, at: new Date().toISOString() }],
     })
     toast(`Sent to ${venue.name}`)
-    nav('/bookings')
+    nav('/applications')
   }
 
   return (

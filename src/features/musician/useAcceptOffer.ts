@@ -21,6 +21,7 @@ export function useAcceptOffer() {
       hue: venue.hue,
       plugging: 0,
       createdByMe: true,
+      loadIn: '17:00',
     })
     updateApplication(a.id, {
       decided: 'Booked',

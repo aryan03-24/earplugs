@@ -47,6 +47,21 @@ export interface Show {
   salesPaused?: boolean
   cancelled?: boolean
   announcements?: { text: string; at: string }[]
+  loadIn?: string // "17:00"
+  setTime?: string // "21:15", when the host band goes on
+  draft?: boolean // saved but not published to fans
+}
+
+/** A slot a venue has posted for musicians to apply to ("Open gigs near you"). */
+export interface OpenGig {
+  id: string
+  venueId: string
+  date: string // ISO
+  pay: number
+  slot: 'Opener' | 'Support' | 'Headliner'
+  setLength: number // minutes
+  genres: string[]
+  applyBy: string // ISO
 }
 
 export interface TicketTier {
@@ -69,7 +84,8 @@ export interface Ticket {
   fees: number
   holder: string
   purchasedAt: string
-  payment: 'apple-pay' | 'card' | 'free'
+  payment: 'apple-pay' | 'paypal' | 'card' | 'free'
+  orderId: string // shown on the confirmation, e.g. EP-48213
   transferredTo?: string
 }
 
@@ -103,6 +119,7 @@ export interface Message {
 export interface Application {
   id: string
   venueId: string
+  openGigId?: string // set when applying to a posted open gig
   createdAt: string
   actName: string
   email: string
@@ -126,6 +143,7 @@ export interface Application {
 export interface Profile {
   role: Role | null
   phone: string
+  username: string
   firstName: string
   lastName: string
   artistName: string
@@ -138,4 +156,5 @@ export interface Profile {
   notifications: boolean
   acceptedTerms: boolean
   onboarded: boolean
+  signedIn: boolean
 }

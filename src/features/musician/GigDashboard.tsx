@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { BackButton, GlassButton, Poster, Screen, Sheet } from '../../components/ui'
-import { LinkIcon, Message, QrIcon, Share, Sparkle, TicketIcon } from '../../components/icons'
+import { Edit, LinkIcon, Message, QrIcon, Share, Sparkle, TicketIcon } from '../../components/icons'
 import { useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { ordersFor, salesSummary } from '../../state/ticketing'
@@ -19,7 +19,7 @@ export default function GigDashboard() {
   const [msg, setMsg] = useState('')
   const [showAll, setShowAll] = useState(false)
   const show = cat.anyShow(id ?? '')
-  if (!show || !show.createdByMe) return <Navigate to="/bookings" replace />
+  if (!show || !show.createdByMe) return <Navigate to="/gigs?tab=shows" replace />
 
   const v = cat.venue(show.venueId)
   const orders = ordersFor(show, v, state.tickets, now)
@@ -28,7 +28,7 @@ export default function GigDashboard() {
   const checkedPeople = orders.filter(o => state.checkins[show.id]?.includes(o.code)).reduce((n, o) => n + o.qty, 0)
   const past = isPastDate(show.date)
   const daysOut = Math.ceil((new Date(show.date).getTime() - now) / 86400e3)
-  const status = show.cancelled ? 'Cancelled' : past ? 'Ended' : show.salesPaused ? 'Paused' : sum.pct >= 100 ? 'Sold out' : 'On sale'
+  const status = show.cancelled ? 'Cancelled' : show.draft ? 'Draft' : past ? 'Ended' : show.salesPaused ? 'Paused' : sum.pct >= 100 ? 'Sold out' : 'On sale'
   const url = `${location.origin}/show/${show.id}`
   const venueTicketed = !show.hostedByMe
 
@@ -41,7 +41,7 @@ export default function GigDashboard() {
   return (
     <Screen className="gig-dash">
       <div className="row between center-v pad-x top-bar">
-        <BackButton to="/bookings" />
+        <BackButton to="/gigs?tab=shows" />
         <b>Manage Gig</b>
         <GlassButton aria-label="Share link" onClick={() => share(show.title, `Tickets for ${show.title}`, url)}><Share size={18} /></GlassButton>
       </div>
@@ -56,6 +56,13 @@ export default function GigDashboard() {
             <div className="muted small">{v.name}</div>
           </div>
         </Link>
+
+        {show.draft && (
+          <div className="draft-banner">
+            <div><b>This show is a draft</b><div className="small muted">Fans can’t see it or buy tickets yet.</div></div>
+            <button className="small-pill white" onClick={() => { updateShow(show.id, { draft: false, publishedAt: new Date().toISOString() }); haptic(30); toast('Published — tickets are on sale') }}>Publish</button>
+          </div>
+        )}
 
         {venueTicketed ? (
           <div className="insight"><span className="why-ic"><Sparkle /></span><div className="small">{v.name} handles ticketing for this booking. You’ll see attendance in Analytics after the show.</div></div>
@@ -83,6 +90,7 @@ export default function GigDashboard() {
               <button className="dash-action" onClick={() => { navigator.clipboard?.writeText(url).catch(() => {}); toast('Ticket link copied') }}><LinkIcon />Copy link</button>
               <button className="dash-action" onClick={() => setSheet('message')} disabled={!!show.cancelled}><Message />Message fans</button>
               <button className="dash-action" onClick={() => setSheet('edit')} disabled={!!show.cancelled || past}><TicketIcon size={20} />Tickets</button>
+              <button className="dash-action" onClick={() => nav(`/host/${show.id}/edit`)} disabled={!!show.cancelled || past}><Edit size={18} />Edit show</button>
             </div>
 
             <h2 className="sub-h">Sales by ticket</h2>

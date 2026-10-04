@@ -137,7 +137,7 @@ export default function GetBooked() {
       messages: [{ from: 'me', text: note.trim() || `Hi ${venue.name}! We’d love to play ${f.targetStart} – ${f.targetEnd}.`, at: new Date().toISOString() }],
     })
     toast(`Application sent to ${venue.name}`)
-    nav('/bookings', { replace: true })
+    nav('/applications', { replace: true })
   }
 
   return (
@@ -145,7 +145,7 @@ export default function GetBooked() {
       <div className="setup-top">
         <div className="row between center-v">
           <Logo size={40} />
-          <GlassButton aria-label="Close" onClick={() => nav('/bookings')}><Close size={16} /></GlassButton>
+          <GlassButton aria-label="Close" onClick={() => nav(-1)}><Close size={16} /></GlassButton>
         </div>
         <div className="eyebrow">Get Booked</div>
         <h1 className="setup-title">{cur.title}</h1>

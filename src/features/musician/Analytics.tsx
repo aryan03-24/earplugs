@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { GlassButton, Screen, Segmented } from '../../components/ui'
+import { GlassButton, Logo, Screen, Segmented } from '../../components/ui'
 import { ChevronRight, Close, Down, Sparkle, Up } from '../../components/icons'
 import { CITY_PERF, KEY_STATS, METRIC_LABEL, RANGES, RECENT_SHOWS, SERIES, VENUE_PERF, rate, type Metric, type Range } from '../../data/analytics'
 import { formatDate, isPastDate, money } from '../../lib/format'
@@ -49,10 +49,11 @@ export default function Analytics() {
     <Screen tabs className="analytics">
       <div className="row between center-v pad-x top-bar">
         <div>
-          <h1 className="large-title">Analytics</h1>
+          <Logo />
+          <h1 className="analytics-title">{cat.myBand?.name ?? 'Your'}’s Analytics</h1>
           <div className="muted small">Your shows · Bay Area</div>
         </div>
-        <GlassButton size={36} aria-label="Close" onClick={() => nav('/explore')}><Close /></GlassButton>
+        <GlassButton size={36} aria-label="Close" onClick={() => (window.history.length > 1 ? nav(-1) : nav('/profile'))}><Close /></GlassButton>
       </div>
 
       <div className="pad-x">
@@ -81,7 +82,7 @@ export default function Analytics() {
           <>
             <div className="row between baseline">
               <h2 className="sub-h">Live ticket sales</h2>
-              <Link to="/bookings" className="muted small">My Gigs ›</Link>
+              <Link to="/gigs?tab=shows" className="muted small">My shows ›</Link>
             </div>
             <div className="list-card">
               {live.map(({ s, sum }) => (

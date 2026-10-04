@@ -36,10 +36,11 @@ Run `npm run mobile:sync` after any code change to copy it into both native proj
 
 | | Fan | Musician |
 |---|---|---|
-| Onboarding | phone → code → name → photo → home → genres → notifications → terms | phone → code → artist name → band info → photo → home → genres → notifications → terms |
-| Tab bar | Explore · Search · **Plugged** · **Tickets** · Profile | Explore · Search · **Analytics** · **My Gigs** · Profile |
+| Onboarding | phone → code → photo & username → name → home → genres → location & notifications → terms | phone → code → photo & username → artist name → home → band (name, members, invite) → genres → location & notifications → terms |
+| Start | Landing (Sign Up / Log In) → “Who are you?” → onboarding | Same |
+| Tab bar | Home · Search · **Plugged** · **Tickets** · Profile | Home · **Gigs** · **+ New show** · Profile (SOBO / Me) |
 | Discover | List/Map, filters, Popular, Recommended, Bands, Friends, Venues Hosting | Same |
-| Shows | Save, share, choose a tier and check out, ticket pass, transfer, refund | Host gigs with ticket tiers, sell, check fans in |
+| Shows | Select Ticket → Checkout (Apple Pay / PayPal / Card) → “You’re in.” → blue ticket pass (rotating QR, Wallet, Transfer) | Gigs: **Find gigs** (filters, Applied/Viewed/Booked, quick apply with pitch) and **My shows** (calendar, Edit / Share / Scan), New/Edit show with drafts, door check-in |
 | Own pages | Profile, Plugged (saved/following/from bands), Tickets with QR codes | Band profile (editable), Analytics, Pitch Report, Get Booked (11 steps), My Gigs (Hosting: Host a Gig, dashboard, door check-in · Booking: Applications / Calendar / Offers / Messages) |
 
 ### Musician-hosted ticketing

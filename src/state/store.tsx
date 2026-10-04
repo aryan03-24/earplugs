@@ -23,8 +23,8 @@ export interface State {
 }
 
 export const EMPTY_PROFILE: Profile = {
-  role: null, phone: '', firstName: '', lastName: '', artistName: '', tagline: '', members: '', photo: null,
-  homeBase: '', secondLocation: '', genres: [], notifications: false, acceptedTerms: false, onboarded: false,
+  role: null, phone: '', username: '', firstName: '', lastName: '', artistName: '', tagline: '', members: '', photo: null,
+  homeBase: '', secondLocation: '', genres: [], notifications: false, acceptedTerms: false, onboarded: false, signedIn: false,
 }
 
 const EMPTY: State = {
@@ -41,7 +41,7 @@ const EMPTY: State = {
   band: { bio: '', tagline: '', media: [] },
 }
 
-const KEY = 'earplug-state-v3'
+const KEY = 'earplug-state-v4'
 
 function load(): State {
   try {
@@ -59,9 +59,11 @@ type ListKey = 'saved' | 'following'
 export interface Actions {
   updateProfile: (p: Partial<Profile>) => void
   completeOnboarding: () => void
+  signIn: () => void
+  signOut: () => void
   switchRole: (role: Role) => void
   toggle: (list: ListKey, id: string) => void
-  addTicket: (t: Ticket) => void
+  addTickets: (t: Ticket[]) => void
   updateTicket: (id: string, patch: Partial<Ticket>) => void
   removeTicket: (id: string) => void
   addHistory: (term: string) => void
@@ -90,10 +92,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateProfile: p => setState(s => ({ ...s, profile: { ...s.profile, ...p } })),
     completeOnboarding: () => setState(s => ({
       ...s,
-      profile: { ...s.profile, onboarded: true },
+      profile: { ...s.profile, onboarded: true, signedIn: true },
       applications: s.profile.role === 'musician' && !s.applications.length ? seedApplications(s.profile.artistName || 'My Band') : s.applications,
       band: { ...s.band, tagline: s.band.tagline || s.profile.tagline },
     })),
+    signIn: () => setState(s => ({ ...s, profile: { ...s.profile, signedIn: true } })),
+    signOut: () => setState(s => ({ ...s, profile: { ...s.profile, signedIn: false } })),
     // Demo helper: try the other persona without losing data (e.g. buy a ticket to your own gig).
     switchRole: role => setState(s => ({
       ...s,
@@ -101,7 +105,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       applications: role === 'musician' && !s.applications.length ? seedApplications(s.profile.artistName || 'My Band') : s.applications,
     })),
     toggle: (list, id) => setState(s => ({ ...s, [list]: s[list].includes(id) ? s[list].filter(x => x !== id) : [...s[list], id] })),
-    addTicket: t => setState(s => ({ ...s, tickets: [...s.tickets, t] })),
+    addTickets: ts => setState(s => ({ ...s, tickets: [...s.tickets, ...ts] })),
     updateTicket: (id, patch) => setState(s => ({ ...s, tickets: s.tickets.map(t => (t.id === id ? { ...t, ...patch } : t)) })),
     removeTicket: id => setState(s => ({ ...s, tickets: s.tickets.filter(t => t.id !== id) })),
     addHistory: term => setState(s => ({ ...s, history: [term, ...s.history.filter(h => h.toLowerCase() !== term.toLowerCase())].slice(0, 10) })),
