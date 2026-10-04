@@ -7,9 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:phone": "vite --host",
+    "mobile:sync": "npm run build && cap sync",
+    "ios": "npm run mobile:sync && cap open ios",
+    "android": "npm run mobile:sync && cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "leaflet": "^1.9.4",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
@@ -18,6 +25,7 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
     "@types/qrcode": "^1.5.6",

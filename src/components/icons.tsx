@@ -73,3 +73,31 @@ export const Star = ({ size = 14, ...p }: P) => (
 export const Target = ({ size = 14, ...p }: P) => (
   <svg {...base(size, p)}><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>
 )
+export const TicketIcon = ({ size = 26, ...p }: P) => (
+  <svg {...base(size, p)} strokeWidth={1.8}><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" /><path d="M14 6v12" strokeDasharray="2 2" /></svg>
+)
+/** Plug icon used for the "Plugged" (saved + following) tab. */
+export const PlugIcon = ({ size = 26, ...p }: P) => (
+  <svg {...base(size, p)} strokeWidth={1.8}><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4" /></svg>
+)
+export const Calendar = ({ size = 18, ...p }: P) => (
+  <svg {...base(size, p)}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+)
+export const Message = ({ size = 18, ...p }: P) => (
+  <svg {...base(size, p)}><path d="M4 5h16v11H9l-5 4z" /></svg>
+)
+export const Edit = ({ size = 16, ...p }: P) => (
+  <svg {...base(size, p)}><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" /></svg>
+)
+export const Trash = ({ size = 16, ...p }: P) => (
+  <svg {...base(size, p)}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+)
+export const Sparkle = ({ size = 14, ...p }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden {...p}><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" /></svg>
+)
+export const Send = ({ size = 18, ...p }: P) => (
+  <svg {...base(size, p)}><path d="M4 12 20 4l-6 16-3-7z" /></svg>
+)
+export const Clock = ({ size = 14, ...p }: P) => (
+  <svg {...base(size, p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+)
