@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Application, Profile, Role, Show, Ticket, Venue } from '../types'
+import type { Application, FanMedia, Friendship, Profile, Role, Show, Ticket, Venue } from '../types'
 import { seedApplications } from '../data/seed'
 
 export interface BandEdits {
@@ -14,7 +14,9 @@ export interface State {
   tickets: Ticket[]
   following: string[] // band ids
   history: string[] // search terms
-  media: string[] // fan media data URLs
+  media: FanMedia[] // fan photos/videos, optionally tagged to a show
+  friends: Friendship[]
+  mediaPrompted: string[] // show ids already asked about
   myShows: Show[] // shows created, hosted or booked by the musician
   customVenues: Venue[] // musician's own spots for self-hosted gigs
   checkins: Record<string, string[]> // showId -> checked-in ticket codes
@@ -24,7 +26,7 @@ export interface State {
 
 export const EMPTY_PROFILE: Profile = {
   role: null, phone: '', username: '', firstName: '', lastName: '', artistName: '', tagline: '', members: '', photo: null,
-  homeBase: '', secondLocation: '', genres: [], notifications: false, acceptedTerms: false, onboarded: false, signedIn: false,
+  homeBase: '', secondLocation: '', genres: [], notifications: false, location: false, acceptedTerms: false, onboarded: false, signedIn: false,
 }
 
 const EMPTY: State = {
@@ -34,6 +36,8 @@ const EMPTY: State = {
   following: [],
   history: ['Tonight', 'Free', 'My Top Genres', 'Rock', 'YouthQuake', "eli's mile high club"],
   media: [],
+  friends: [],
+  mediaPrompted: [],
   myShows: [],
   customVenues: [],
   checkins: {},
@@ -41,7 +45,7 @@ const EMPTY: State = {
   band: { bio: '', tagline: '', media: [] },
 }
 
-const KEY = 'earplug-state-v4'
+const KEY = 'earplug-state-v5'
 
 function load(): State {
   try {
@@ -68,7 +72,11 @@ export interface Actions {
   removeTicket: (id: string) => void
   addHistory: (term: string) => void
   clearHistory: () => void
-  addMedia: (dataUrl: string) => void
+  addMedia: (m: FanMedia) => void
+  markMediaPrompted: (showId: string) => void
+  requestFriend: (id: string) => void
+  acceptFriend: (id: string) => void
+  removeFriend: (id: string) => void
   updateBand: (b: Partial<BandEdits>) => void
   addShow: (s: Show) => void
   updateShow: (id: string, patch: Partial<Show>) => void
@@ -110,7 +118,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeTicket: id => setState(s => ({ ...s, tickets: s.tickets.filter(t => t.id !== id) })),
     addHistory: term => setState(s => ({ ...s, history: [term, ...s.history.filter(h => h.toLowerCase() !== term.toLowerCase())].slice(0, 10) })),
     clearHistory: () => setState(s => ({ ...s, history: [] })),
-    addMedia: url => setState(s => ({ ...s, media: [url, ...s.media] })),
+    addMedia: m => setState(s => ({ ...s, media: [m, ...s.media] })),
+    markMediaPrompted: id => setState(s => ({ ...s, mediaPrompted: [...new Set([...s.mediaPrompted, id])] })),
+    requestFriend: id => setState(s => ({ ...s, friends: [...s.friends.filter(f => f.id !== id), { id, status: 'requested', at: new Date().toISOString() }] })),
+    acceptFriend: id => setState(s => ({ ...s, friends: s.friends.map(f => (f.id === id ? { ...f, status: 'friends' } : f)) })),
+    removeFriend: id => setState(s => ({ ...s, friends: s.friends.filter(f => f.id !== id) })),
     updateBand: b => setState(s => ({ ...s, band: { ...s.band, ...b } })),
     addShow: show => setState(s => ({ ...s, myShows: [...s.myShows, show] })),
     updateShow: (id, patch) => setState(s => ({ ...s, myShows: s.myShows.map(x => (x.id === id ? { ...x, ...patch } : x)) })),

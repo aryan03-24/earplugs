@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ScanIcon } from '../../components/icons'
+import { ChevronRight, ScanIcon } from '../../components/icons'
+import { dayKey, keyToDate, MonthCalendar } from '../../components/MonthCalendar'
 import { appStatus, offerDate, useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { ordersFor, salesSummary } from '../../state/ticketing'
@@ -12,8 +13,6 @@ type Entry =
   | { kind: 'show'; date: Date; show: Show; status: 'Confirmed' | 'Draft' }
   | { kind: 'app'; date: Date; app: Application; status: 'Pending' | 'Offer' }
 
-const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-const WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 // "7:30" / "9:15" style times used in the Figma's day card.
 const short = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/ [AP]M$/, '')
 const hhmm = (t?: string) => (t ? new Date(`2000-01-01T${t}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '')
@@ -40,44 +39,16 @@ export default function MyShows() {
 
   const byDay = new Map<string, Entry[]>()
   for (const e of entries) byDay.set(dayKey(e.date), [...(byDay.get(dayKey(e.date)) ?? []), e])
+  const dots = new Map<string, 'blue' | 'gray'>([...byDay].map(([k, es]) => [k, es.some(e => e.status === 'Confirmed') ? 'blue' : 'gray']))
 
-  const lead = new Date(month.getFullYear(), month.getMonth(), 1).getDay()
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
-  const cells: (Date | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))]
-  const selectedDate = (() => { const [y, m, d] = selected.split('-').map(Number); return new Date(y, m, d) })()
+  const selectedDate = keyToDate(selected)
   const dayEntries = byDay.get(selected) ?? []
   const later = entries.filter((e): e is Extract<Entry, { kind: 'show' }> =>
     e.kind === 'show' && e.status === 'Confirmed' && e.date.getMonth() === month.getMonth() && e.date.getFullYear() === month.getFullYear() && dayKey(e.date) !== selected)
-  const shift = (n: number) => setMonth(m => new Date(m.getFullYear(), m.getMonth() + n, 1))
 
   return (
     <div className="pad-x">
-      <section className="cal-card" aria-label="Calendar">
-        <div className="row between center-v cal-head">
-          <h2>{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-          <div className="row gap-sm">
-            <button className="cal-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeft size={16} /></button>
-            <button className="cal-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRight size={16} /></button>
-          </div>
-        </div>
-        <div className="cal-grid">
-          {WEEK.map((w, i) => <span key={i} className="cal-dow">{w}</span>)}
-          {cells.map((d, i) => {
-            if (!d) return <span key={i} />
-            const k = dayKey(d)
-            const es = byDay.get(k) ?? []
-            const confirmed = es.some(e => e.status === 'Confirmed')
-            const cls = ['cal-day', k === selected && 'sel', k === dayKey(today) && 'today', d.getTime() < startOfToday && 'past'].filter(Boolean).join(' ')
-            return (
-              <button key={i} className={cls} onClick={() => setSelected(k)} aria-label={d.toDateString()} aria-pressed={k === selected}>
-                <span className="cal-num">{d.getDate()}</span>
-                <span className="cal-dot">{es.length > 0 && <i className={confirmed ? 'dot-blue' : 'dot-gray'} />}</span>
-              </button>
-            )
-          })}
-        </div>
-        <div className="cal-legend"><span><i className="dot-blue" /> Confirmed</span><span><i className="dot-gray" /> Pending / draft</span></div>
-      </section>
+      <MonthCalendar month={month} onMonth={setMonth} selected={[selected]} onSelect={setSelected} dots={dots} />
 
       <h2 className="day-title">{selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</h2>
       {dayEntries.length
@@ -127,7 +98,7 @@ function DayCard({ entry, now }: { entry: Entry; now: number }) {
   return (
     <div className="day-card">
       <Link to={`/host/${s.id}`} className="block">
-        <div className="row between center-v"><b className="day-card-title">{title}</b><span className={`entry-pill ${entry.status === 'Draft' ? 'draft' : 'confirmed'}`}>{entry.status}</span></div>
+        <div className="row between center-v"><b className="day-card-title">{title}</b><span className={`entry-pill ${entry.status === 'Draft' ? 'draft' : 'confirmed'}`}>{s.venueApproval === 'pending' ? 'Pending' : entry.status}</span></div>
         <div className="day-card-sub">{v.name} · {formatTime(s.date)}</div>
         {sum ? (
           <>

@@ -14,7 +14,7 @@ export default function ShowPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const cat = useCatalog()
-  const { state, toggle } = useStore()
+  const { state, toggle, requestFriend } = useStore()
   const [sheet, setSheet] = useState<'friends' | null>(null)
   const show = cat.show(id ?? '')
   if (!show) return <Navigate to="/explore" replace />
@@ -144,7 +144,7 @@ export default function ShowPage() {
           ) : soldOut ? (
             <button disabled>SOLD OUT</button>
           ) : (
-            <button onClick={() => nav(`/show/${show.id}/tickets`)}>{maxPrice === 0 ? 'RSVP' : myTickets.length ? 'GET MORE TICKETS' : 'GET TICKETS'}</button>
+            <button onClick={() => nav(`/show/${show.id}/tickets`)}>{myTickets.length ? 'GET MORE TICKETS' : 'GET TICKETS'}</button>
           )}
         </div>
       )}
@@ -155,12 +155,18 @@ export default function ShowPage() {
             {plugging.map(f => (
               <div key={f.id} className="row gap center-v">
                 <Avatar name={f.name} hue={f.hue} size={44} />
-                <div className="grow"><b>{f.name}</b><div className="muted small">{f.handle}</div></div>
-                <span className="muted small">Going</span>
+                <div className="grow"><b>{f.name}</b><div className="muted small">{f.handle} · Going</div></div>
+                {(() => {
+                  const rel = state.friends.find(x => x.id === f.id)
+                  if (rel?.status === 'friends') return <span className="friend-state">Friends</span>
+                  if (rel?.status === 'requested') return <span className="friend-state muted">Requested</span>
+                  return <button className="add-friend" onClick={() => { requestFriend(f.id); haptic(); toast(`Friend request sent to ${f.name}`) }}>Add friend</button>
+                })()}
               </div>
             ))}
           </div>
-        ) : <p className="muted">None of your friends have plugged in yet. Share it and be the first!</p>}
+        ) : <p className="muted">No one has plugged in yet. Share it and be the first!</p>}
+        <p className="muted small">You’re friends once they accept your request.</p>
       </Sheet>
     </div>
   )

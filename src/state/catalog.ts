@@ -2,10 +2,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BANDS, SHOWS, VENUES } from '../data/seed'
 import { distanceKm, isPastDate, isToday } from '../lib/format'
-import type { Application, ApplicationStatus, Band, Message, Show, Venue } from '../types'
+import type { Application, ApplicationStatus, Band, FanMedia, Message, Show, Venue } from '../types'
+import { SEED_FAN_MEDIA, SOBO } from '../data/media'
 import { useStore, type State } from './store'
 
 export const MY_BAND_ID = 'me'
+
+/** Fan photos tagged to shows: the user's own uploads plus seeded fan posts. */
+export function allFanMedia(state: State): FanMedia[] {
+  return [...state.media, ...SEED_FAN_MEDIA.map(m => ({ ...m, kind: 'image' as const, at: '' }))]
+}
 
 export function myBand(state: State): Band | null {
   const p = state.profile
@@ -20,8 +26,9 @@ export function myBand(state: State): Band | null {
     bio: state.band.bio || `${p.artistName || 'We'} ${p.members ? `are a ${p.members}-piece` : 'are a'} band from ${p.homeBase || 'the Bay Area'}.`,
     followers: 640 + (state.following.includes(MY_BAND_ID) ? 1 : 0),
     hue: 230,
-    photo: p.photo ?? undefined,
-    media: state.band.media,
+    // The demo musician is SOBO: until they upload their own, their page uses SOBO's show photos.
+    photo: p.photo ?? SOBO.group,
+    media: state.band.media.length ? state.band.media : SOBO.clips,
   }
 }
 
@@ -36,7 +43,8 @@ export function useCatalog() {
     const band = (id: string) => bands.find(b => b.id === id)
     const show = (id: string) => shows.find(s => s.id === id)
     const upcoming = shows.filter(s => !isPastDate(s.date)).sort((a, b) => a.date.localeCompare(b.date))
-    const showsFor = (bandId: string) => shows.filter(s => s.bandIds.includes(bandId)).sort((a, b) => a.date.localeCompare(b.date))
+    // The musician's own band also inherits SOBO's past seed shows (demo history).
+    const showsFor = (bandId: string) => shows.filter(s => s.bandIds.includes(bandId) || (bandId === MY_BAND_ID && s.bandIds.includes('sobo') && isPastDate(s.date))).sort((a, b) => a.date.localeCompare(b.date))
     const showsAt = (venueId: string) => upcoming.filter(s => s.venueId === venueId)
     const show_ = (id: string) => show(id) ?? state.myShows.find(s => s.id === id) // includes cancelled, for managers
     const hosted = state.myShows.filter(s => s.hostedByMe || s.createdByMe).sort((a, b) => a.date.localeCompare(b.date))

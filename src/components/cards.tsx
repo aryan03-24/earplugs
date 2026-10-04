@@ -1,6 +1,6 @@
 // Domain cards: shows, bands, venues, gigs.
 import { Link } from 'react-router-dom'
-import type { Band, Show, Venue } from '../types'
+import type { Band, FanMedia, Show, Venue } from '../types'
 import { useCatalog } from '../state/catalog'
 import { useStore } from '../state/store'
 import { priceLabel, shortDate } from '../lib/format'
@@ -12,7 +12,7 @@ export function ShowCard({ show, size = 'md' }: { show: Show; size?: 'md' | 'lg'
   const { band } = useCatalog()
   return (
     <Link to={`/show/${show.id}`} className={`show-card ${size}`}>
-      <Poster hue={show.hue} label={show.title} photo={band(show.bandIds[0])?.photo}>
+      <Poster hue={show.hue} label={show.title} photo={show.poster ?? band(show.bandIds[0])?.photo}>
         <span className="price-tag">{priceLabel(show.price)}</span>
       </Poster>
     </Link>
@@ -38,7 +38,7 @@ export function BandGrid({ bands }: { bands: Band[] }) {
 export function VenueCard({ venue, count }: { venue: Venue; count: number }) {
   return (
     <Link to={`/venue/${venue.id}`} className="venue-card">
-      <Poster hue={venue.hue} label={venue.name} />
+      <Poster hue={venue.hue} photo={venue.photo} label={venue.name} />
       <span className="venue-count">{count} upcoming</span>
     </Link>
   )
@@ -62,7 +62,7 @@ export function GigRow({ show, showShare = true }: { show: Show; showShare?: boo
   return (
     <div className="gig-row">
       <Link to={`/show/${show.id}`} className="gig-main">
-        <Poster hue={show.hue} className="gig-thumb" photo={band(show.bandIds[0])?.photo} />
+        <Poster hue={show.hue} className="gig-thumb" photo={show.poster ?? band(show.bandIds[0])?.photo} />
         <div className="gig-text">
           <div className="gig-name">{show.title}</div>
           <div className="gig-sub">{bands}</div>
@@ -75,6 +75,18 @@ export function GigRow({ show, showShare = true }: { show: Show; showShare?: boo
         </button>
       )}
       <SaveButton showId={show.id} />
+    </div>
+  )
+}
+
+/** A fan photo or video, optionally captioned with the show it's from. */
+export function MediaTile({ media, caption }: { media: FanMedia; caption?: string }) {
+  return (
+    <div className="media-tile fan-media">
+      {media.kind === 'video'
+        ? <video src={media.url} muted playsInline loop autoPlay className="media-fill" />
+        : <img src={media.url} alt={caption ?? 'Fan media'} className="media-fill" />}
+      {caption && <span className="media-caption">{caption}</span>}
     </div>
   )
 }

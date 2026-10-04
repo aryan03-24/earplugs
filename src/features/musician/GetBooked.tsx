@@ -1,178 +1,170 @@
-import { useState, type ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { GlassButton, Logo } from '../../components/ui'
-import { ChevronLeft, ChevronRight, Close } from '../../components/icons'
-import { GENRES } from '../../data/seed'
-import { RECENT_SHOWS } from '../../data/analytics'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Chip, CloseButton, Logo } from '../../components/ui'
+import { ChevronLeft, ChevronRight, Search } from '../../components/icons'
+import { dayKey, keyToDate, MonthCalendar } from '../../components/MonthCalendar'
+import { OPEN_GIGS } from '../../data/seed'
+import { KEY_STATS, RECENT_SHOWS } from '../../data/analytics'
 import { useCatalog } from '../../state/catalog'
 import { useStore } from '../../state/store'
+import { ordersFor } from '../../state/ticketing'
+import { formatDate, isPastDate } from '../../lib/format'
 import { haptic, toast, uid } from '../../lib/native'
-import type { Application } from '../../types'
+import { cityFor, kmFrom, LocationButton, type City } from './BookingLocation'
 
-type Form = Omit<Application, 'id' | 'createdAt' | 'messages' | 'decided' | 'offerDate' | 'showId'> & { note: string }
+const MAX_DATES = 3
 
-const isoIn = (days: number) => new Date(Date.now() + days * 86400e3).toISOString().slice(0, 10)
-
-/** "Get Booked": the 11-step venue application from the Figma, one question per screen. */
+/**
+ * Booking application: 1) venue  2) dates  3) send your most recent pitch report.
+ * If EarPlug hasn't tracked any of your shows yet, step 3 asks for the missing numbers.
+ * Applying to an open gig skips straight to step 3 (venue and date are already known).
+ */
 export default function GetBooked() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const cat = useCatalog()
   const { state, submitApplication } = useStore()
-  const p = state.profile
-  const [step, setStep] = useState(params.get('venue') ? 1 : 0)
-  const [f, setF] = useState<Form>({
-    venueId: params.get('venue') ?? '',
-    actName: p.artistName,
-    email: '',
-    members: p.members,
-    targetStart: isoIn(28),
-    targetEnd: isoIn(30),
-    website: '',
-    draw: '',
-    soundsLike: '',
-    videos: ['', '', ''],
-    genres: p.genres.filter(g => g !== 'A little of everything'),
-    lastShows: RECENT_SHOWS.slice(0, 3).map(s => `${s.venue} — ${s.attended} attendees`).join('\n'),
-    bill: '',
-    note: '',
-  })
-  const set = (patch: Partial<Form>) => setF(x => ({ ...x, ...patch }))
+  const band = cat.myBand!
+  const openGig = OPEN_GIGS.find(g => g.id === params.get('gig'))
 
+  const [city, setCity] = useState<City>(cityFor(state.profile.homeBase))
+  const [radius, setRadius] = useState(15)
+  const [q, setQ] = useState('')
+  const [venueId, setVenueId] = useState(openGig?.venueId ?? params.get('venue') ?? '')
+  const [dates, setDates] = useState<string[]>(openGig ? [dayKey(new Date(openGig.date))] : [])
+  const [month, setMonth] = useState(() => { const d = openGig ? new Date(openGig.date) : new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [step, setStep] = useState(openGig ? 2 : params.get('venue') ? 1 : 0)
+  const [note, setNote] = useState('')
+  const [manual, setManual] = useState({ draw: '', lastShows: '', video: '' })
+
+  // "Tracked" = EarPlug has real numbers from a show you ran or reported.
+  const tracked = state.myShows.some(s => (s.hostedByMe && ordersFor(s, cat.venue(s.venueId), state.tickets).length > 0) || (isPastDate(s.date) && s.attendance != null))
+  const stats = KEY_STATS['30D']
+
+  const venues = useMemo(() => cat.venues
+    .map(v => ({ v, km: kmFrom(city, v) }))
+    .filter(x => x.km <= radius && (!q.trim() || `${x.v.name} ${x.v.city}`.toLowerCase().includes(q.trim().toLowerCase())))
+    .sort((a, b) => a.km - b.km), [cat, city, radius, q])
+
+  const toggleDate = (k: string) => {
+    haptic()
+    if (dates.includes(k)) { setDates(dates.filter(x => x !== k)); return }
+    if (dates.length >= MAX_DATES) { toast(`Pick up to ${MAX_DATES} dates`); return }
+    setDates([...dates, k].sort((a, b) => keyToDate(a).getTime() - keyToDate(b).getTime()))
+  }
+
+  const manualOk = tracked || (manual.draw.trim() !== '' && manual.lastShows.trim() !== '')
   const steps: { title: string; valid: boolean; body: ReactNode }[] = [
     {
-      title: 'Which venue do you want to play?', valid: !!f.venueId,
+      title: 'Which venue do you want to play?', valid: !!venueId,
       body: (
-        <div className="list-card">
-          {cat.venues.map(v => (
-            <button key={v.id} type="button" className={`list-item${f.venueId === v.id ? ' selected' : ''}`} onClick={() => { set({ venueId: v.id }); haptic() }}>
-              <div className="left"><b>{v.name}</b><div className="muted small">{v.city} · cap. {v.capacity} · {v.ages}</div></div>
-              {f.venueId === v.id && <span className="dot-on" />}
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    { title: 'Step 1: Name of Act/Band/Artist', valid: !!f.actName.trim(), body: <Input value={f.actName} onChange={v => set({ actName: v })} placeholder="SOBO" /> },
-    { title: 'Step 2: Email', valid: /\S+@\S+\.\S+/.test(f.email), body: <Input type="email" inputMode="email" value={f.email} onChange={v => set({ email: v })} placeholder="band@email.com" /> },
-    { title: 'Step 3: # of Members', valid: !!f.members, body: <Input inputMode="numeric" value={f.members} onChange={v => set({ members: v.replace(/\D/g, '') })} placeholder="4" /> },
-    {
-      title: 'Step 4: Target Date (3 day range)', valid: !!f.targetStart && f.targetEnd >= f.targetStart,
-      body: (
-        <div className="stack-sm">
-          <label className="dark-field"><span>From</span><input type="date" value={f.targetStart} min={isoIn(1)} onChange={e => set({ targetStart: e.target.value, targetEnd: addDays(e.target.value, 2) })} /></label>
-          <label className="dark-field"><span>To</span><input type="date" value={f.targetEnd} min={f.targetStart} onChange={e => set({ targetEnd: e.target.value })} /></label>
-        </div>
-      ),
-    },
-    { title: 'Step 5: Website URL', valid: true, body: <Input type="url" inputMode="url" value={f.website} onChange={v => set({ website: v })} placeholder="https://yourband.com (optional)" /> },
-    {
-      title: 'Step 6: What size crowd do you normally draw on your own?', valid: !!f.draw,
-      body: (
-        <div className="chip-row wrap flush">
-          {['Under 25', '25–50', '50–80', '80–100', '100–150', '150+'].map(d => (
-            <button key={d} type="button" className={`genre-pill${f.draw === d ? ' on' : ''}`} onClick={() => set({ draw: d })}>{d}</button>
-          ))}
-        </div>
-      ),
-    },
-    { title: 'Step 7: 2-3 musicians/bands that you could use to describe your sound and your scene?', valid: !!f.soundsLike.trim(), body: <Input multiline value={f.soundsLike} onChange={v => set({ soundsLike: v })} placeholder="Alvvays, The Strokes, Beach Bunny" /> },
-    {
-      title: 'Step 8: 2-3 Videos of your sound', valid: f.videos.filter(v => v.trim()).length >= 1,
-      body: (
-        <div className="stack-sm">
-          {f.videos.map((v, i) => (
-            <Input key={i} type="url" inputMode="url" value={v} placeholder={`Video link ${i + 1}${i === 0 ? '' : ' (optional)'}`}
-              onChange={val => set({ videos: f.videos.map((x, j) => (j === i ? val : x)) })} />
-          ))}
-        </div>
+        <>
+          <div className="row between center-v"><span className="muted small">Booking near</span><LocationButton city={city} radius={radius} onChange={(c, r) => { setCity(c); setRadius(r) }} /></div>
+          <label className="search-bar"><Search size={16} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search venues" aria-label="Search venues" /></label>
+          <div className="choice-list">
+            {venues.map(({ v, km }) => (
+              <button key={v.id} type="button" className={`select-row${venueId === v.id ? ' on' : ''}`} onClick={() => { setVenueId(v.id); haptic() }}>
+                <span className="grow left"><b>{v.name}</b><span className="select-sub">{v.city} · {km.toFixed(1)} km · cap. {v.capacity} · {v.ages}</span></span>
+              </button>
+            ))}
+            {!venues.length && <p className="muted small">No venues within {radius} km of {city}. Try a wider distance.</p>}
+          </div>
+        </>
       ),
     },
     {
-      title: 'Step 9: Genres you identify with', valid: f.genres.length > 0,
+      title: 'When do you want to play?', valid: dates.length > 0,
       body: (
-        <div className="genre-grid">
-          {GENRES.filter(g => g !== 'A little of everything').map(g => {
-            const on = f.genres.includes(g)
-            return <button key={g} type="button" className={`genre-pill${on ? ' on' : ''}`} onClick={() => set({ genres: on ? f.genres.filter(x => x !== g) : [...f.genres, g] })}>{g}{on && <span className="dot" />}</button>
-          })}
-        </div>
+        <>
+          <p className="setup-copy plain center">Pick up to {MAX_DATES} dates that work for you.</p>
+          <MonthCalendar month={month} onMonth={setMonth} selected={dates} onSelect={toggleDate} disablePast legend={false} />
+          {dates.length > 0 && <div className="chip-row wrap flush center-h">{dates.map(k => <Chip key={k} blue>{formatDate(keyToDate(k).toISOString(), { weekday: 'short', month: 'short', day: 'numeric' })}</Chip>)}</div>}
+        </>
       ),
     },
-    { title: 'Step 10: List the last 3 shows you played, bands you played with, and how many attendees you had', valid: !!f.lastShows.trim(), body: <Input multiline rows={5} value={f.lastShows} onChange={v => set({ lastShows: v })} /> },
-    { title: 'Step 11: Do you have a bill in mind?', valid: true, body: <Input multiline value={f.bill} onChange={v => set({ bill: v })} placeholder="Bands you’d like to share the night with (optional)" /> },
     {
-      title: 'Review & send', valid: true,
+      title: 'Send your pitch', valid: manualOk,
       body: (
-        <div className="stack-sm">
-          <dl className="review">
-            <dt>Venue</dt><dd>{f.venueId ? cat.venue(f.venueId).name : '—'}</dd>
-            <dt>Act</dt><dd>{f.actName}</dd>
-            <dt>Email</dt><dd>{f.email}</dd>
-            <dt>Members</dt><dd>{f.members}</dd>
-            <dt>Dates</dt><dd>{f.targetStart} → {f.targetEnd}</dd>
-            <dt>Draw</dt><dd>{f.draw}</dd>
-            <dt>Genres</dt><dd>{f.genres.join(', ')}</dd>
-          </dl>
-          <Input multiline value={f.note} onChange={v => set({ note: v })} placeholder="Add a note to the venue (optional)" />
-        </div>
+        <>
+          <div className="pitch-summary">
+            <div className="row between center-v">
+              <div><div className="muted small">To</div><b>{venueId ? cat.venue(venueId).name : '—'}</b></div>
+              <div className="right"><div className="muted small">{dates.length > 1 ? 'Dates' : 'Date'}</div><b>{dates.map(k => formatDate(keyToDate(k).toISOString(), { month: 'short', day: 'numeric' })).join(', ')}</b></div>
+            </div>
+            {openGig && <div className="muted small">{openGig.slot} · {openGig.setLength} min · {openGig.pay ? `$${openGig.pay}` : 'Door split'}</div>}
+          </div>
+
+          {tracked ? (
+            <div className="pitch-attach">
+              <div className="row between center-v"><b>Most recent pitch report</b><Link to="/pitch" className="link small">Preview</Link></div>
+              <div className="muted small">{band.name} · {band.city} · {state.profile.members ? `${state.profile.members} members` : 'Solo'}</div>
+              <div className="analytics-mini">
+                <div><b>{stats.attendance}</b><span>Avg. attendance</span></div>
+                <div><b>{stats.showUp}%</b><span>Show-up rate</span></div>
+                <div><b>${stats.avgTicket}</b><span>Avg. ticket</span></div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="setup-copy plain center">EarPlug hasn’t tracked any of your shows yet, so add the numbers venues look for.</p>
+              <label className="labeled-field"><span>Typical draw (people)</span><input inputMode="numeric" value={manual.draw} onChange={e => setManual({ ...manual, draw: e.target.value.replace(/[^\d–-]/g, '') })} /></label>
+              <label className="labeled-field"><span>Last 3 shows & attendance</span><textarea rows={3} value={manual.lastShows} onChange={e => setManual({ ...manual, lastShows: e.target.value })} placeholder="ex. Cornerstone – 74" /></label>
+              <label className="labeled-field"><span>Video link (optional)</span><input inputMode="url" value={manual.video} onChange={e => setManual({ ...manual, video: e.target.value })} /></label>
+            </>
+          )}
+          <label className="labeled-field"><span>Note to the venue (optional)</span><textarea rows={3} value={note} onChange={e => setNote(e.target.value)} /></label>
+        </>
       ),
     },
   ]
-
   const cur = steps[step]
   const last = step === steps.length - 1
 
-  const next = () => {
-    if (!cur.valid) { toast('Please complete this step'); return }
-    haptic()
-    if (!last) { setStep(s => s + 1); return }
-    const { note, ...rest } = f
-    const venue = cat.venue(f.venueId)
+  const send = () => {
+    const v = cat.venue(venueId)
+    const sorted = dates.map(keyToDate).sort((a, b) => a.getTime() - b.getTime())
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     submitApplication({
-      ...rest,
-      videos: f.videos.filter(v => v.trim()),
-      id: uid('app'),
-      createdAt: new Date().toISOString(),
-      messages: [{ from: 'me', text: note.trim() || `Hi ${venue.name}! We’d love to play ${f.targetStart} – ${f.targetEnd}.`, at: new Date().toISOString() }],
+      id: uid('app'), venueId, openGigId: openGig?.id, createdAt: new Date().toISOString(),
+      actName: band.name, email: '', members: state.profile.members, targetStart: iso(sorted[0]), targetEnd: iso(sorted[sorted.length - 1]),
+      website: '', draw: tracked ? `${stats.attendance} avg` : manual.draw, soundsLike: '', videos: manual.video ? [manual.video] : [], genres: band.genres,
+      lastShows: tracked ? RECENT_SHOWS.slice(0, 3).map(s => `${s.venue} (${s.attended})`).join(', ') : manual.lastShows, bill: '',
+      offerDate: openGig?.date,
+      messages: [{ from: 'me', text: note.trim() || `Hi ${v.name}! ${band.name} would love to play ${sorted.map(d => formatDate(d.toISOString(), { month: 'short', day: 'numeric' })).join(' / ')}. ${tracked ? 'Our pitch report is attached.' : `We usually draw ${manual.draw} people.`}`, at: new Date().toISOString() }],
     })
-    toast(`Application sent to ${venue.name}`)
+    haptic(30)
+    toast(`Sent to ${v.name}`)
     nav('/applications', { replace: true })
   }
+
+  const next = () => {
+    if (!cur.valid) { toast(step === 0 ? 'Choose a venue' : step === 1 ? 'Pick at least one date' : 'Add your typical draw and last shows'); return }
+    haptic()
+    if (last) send(); else setStep(s => s + 1)
+  }
+  const back = () => (step === 0 || (openGig && step === 2) ? nav(-1) : setStep(s => s - 1))
 
   return (
     <div className="screen setup">
       <div className="setup-top">
-        <div className="row between center-v">
-          <Logo size={40} />
-          <GlassButton aria-label="Close" onClick={() => nav(-1)}><Close size={16} /></GlassButton>
-        </div>
+        <div className="row between center-v"><span style={{ width: 32 }} /><Logo size={48} /><CloseButton /></div>
         <h1 className="setup-title">{cur.title}</h1>
         <div className="progress"><div style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
       </div>
       <form className="setup-body" onSubmit={e => { e.preventDefault(); next() }}>
         {cur.body}
-        {step > 0 && (
-          <button type="button" className="prev-btn" aria-label="Previous" onClick={() => setStep(s => s - 1)}><ChevronLeft size={26} /></button>
+        {last ? (
+          <div className="step-footer">
+            <button type="button" className="round-btn" aria-label="Back" onClick={back}><ChevronLeft size={24} /></button>
+            <button type="submit" className="next-pill" disabled={!cur.valid}>SEND PITCH</button>
+          </div>
+        ) : (
+          <>
+            <button type="button" className="prev-btn" aria-label="Back" onClick={back}><ChevronLeft size={26} /></button>
+            <button type="submit" className={`next-btn${cur.valid ? '' : ' disabled'}`} aria-label="Next"><ChevronRight size={30} /></button>
+          </>
         )}
-        {last
-          ? <button type="submit" className="primary-btn send-btn">Send application</button>
-          : <button type="submit" className={`next-btn${cur.valid ? '' : ' disabled'}`} aria-label="Next"><ChevronRight size={30} /></button>}
       </form>
     </div>
   )
-}
-
-function addDays(iso: string, n: number) {
-  const d = new Date(`${iso}T12:00`)
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-
-function Input({ value, onChange, placeholder, multiline, rows = 3, type = 'text', inputMode }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; rows?: number; type?: string; inputMode?: 'numeric' | 'email' | 'url'
-}) {
-  return multiline
-    ? <textarea className="dark-input" rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} autoFocus />
-    : <input className="dark-input" type={type} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} autoFocus />
 }

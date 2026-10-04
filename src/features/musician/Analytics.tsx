@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GlassButton, Logo, Screen, Segmented } from '../../components/ui'
-import { ChevronRight, Close, Down, Sparkle, Up } from '../../components/icons'
+import { ChevronRight, Down, Up } from '../../components/icons'
 import { CITY_PERF, KEY_STATS, METRIC_LABEL, RANGES, RECENT_SHOWS, SERIES, VENUE_PERF, rate, type Metric, type Range } from '../../data/analytics'
 import { formatDate, isPastDate, money } from '../../lib/format'
 import { useCatalog, useNow } from '../../state/catalog'
@@ -29,11 +29,6 @@ export default function Analytics() {
     const v = cat.venue(s.venueId)
     return { s, sum: salesSummary(s, v, ordersFor(s, v, state.tickets, now)) }
   })
-  const lagging = live.find(x => x.sum.pct < 50)
-  const insight = lagging
-    ? `${lagging.s.title} is ${lagging.sum.pct}% sold. Your Oakland fans convert 12 pts above average, so share it there first.`
-    : live.length ? `${live[0].s.title} is ${live[0].sum.pct}% sold. Keep the momentum: post the lineup and set times.`
-      : 'Your Oakland shows convert 12 pts above your average. Book there again.'
   const rows = (perf === 'City' ? CITY_PERF : VENUE_PERF).map(r => ({ ...r, rate: rate(r) })).sort((x, y) => y.rate - x.rate)
 
   const kpis: { m: Metric; label: string; value: string; sub: ReactNode }[] = [
@@ -53,7 +48,6 @@ export default function Analytics() {
           <h1 className="analytics-title">{cat.myBand?.name ?? 'Your'}’s Analytics</h1>
           <div className="muted small">Your shows · Bay Area</div>
         </div>
-        <GlassButton size={36} aria-label="Close" onClick={() => (window.history.length > 1 ? nav(-1) : nav('/profile'))}><Close /></GlassButton>
       </div>
 
       <div className="pad-x">
@@ -73,10 +67,6 @@ export default function Analytics() {
 
         <LineChart metric={metric} />
 
-        <div className="insight">
-          <span className="why-ic"><Sparkle /></span>
-          <div><b>Insight</b><div className="small">{insight}</div></div>
-        </div>
 
         {live.length > 0 && (
           <>
@@ -134,7 +124,7 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="ticket-bar inline">
+      <div className="report-bar">
         <button onClick={() => { toast('Pitch report generated'); nav('/pitch') }}>GENERATE REPORT</button>
       </div>
     </Screen>

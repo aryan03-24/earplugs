@@ -6,6 +6,7 @@ import Welcome from './features/onboarding/Welcome'
 import RolePick from './features/onboarding/RolePick'
 import Login from './features/onboarding/Login'
 import Setup from './features/onboarding/Setup'
+import { MediaPrompt, Simulations } from './features/account/Background'
 
 // Shared discovery
 const Explore = lazy(() => import('./features/discover/Explore'))
@@ -58,6 +59,8 @@ export default function App() {
     <StoreProvider>
       <BrowserRouter>
         <div className="device">
+          <Simulations />
+          <MediaPrompt />
           <Suspense fallback={<div className="screen loading" aria-busy="true" />}>
             <Routes>
               {/* Onboarding */}
@@ -67,9 +70,9 @@ export default function App() {
               <Route path="/setup/:step" element={<Setup />} />
 
               {/* Shared discovery */}
-              <Route path="/explore" element={any(<Explore />)} />
-              <Route path="/search" element={any(<Search />)} />
-              <Route path="/more" element={any(<MoreGigs />)} />
+              <Route path="/explore" element={fan(<Explore />)} />
+              <Route path="/search" element={fan(<Search />)} />
+              <Route path="/more" element={fan(<MoreGigs />)} />
               <Route path="/show/:id" element={any(<ShowPage />)} />
               <Route path="/band/:id" element={any(<BandPage />)} />
               <Route path="/venue/:id" element={any(<VenuePage />)} />

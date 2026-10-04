@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { BackButton, GlassButton, Poster, Screen, Sheet } from '../../components/ui'
-import { Edit, LinkIcon, Message, QrIcon, Share, Sparkle, TicketIcon } from '../../components/icons'
+import { Edit, LinkIcon, Message, QrIcon, Share, TicketIcon } from '../../components/icons'
 import { useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { ordersFor, salesSummary } from '../../state/ticketing'
@@ -27,16 +27,9 @@ export default function GigDashboard() {
   const checked = state.checkins[show.id]?.length ?? 0
   const checkedPeople = orders.filter(o => state.checkins[show.id]?.includes(o.code)).reduce((n, o) => n + o.qty, 0)
   const past = isPastDate(show.date)
-  const daysOut = Math.ceil((new Date(show.date).getTime() - now) / 86400e3)
-  const status = show.cancelled ? 'Cancelled' : show.draft ? 'Draft' : past ? 'Ended' : show.salesPaused ? 'Paused' : sum.pct >= 100 ? 'Sold out' : 'On sale'
+  const status = show.cancelled ? 'Cancelled' : show.venueApproval === 'pending' ? 'Pending approval' : show.draft ? 'Draft' : past ? 'Ended' : show.salesPaused ? 'Paused' : sum.pct >= 100 ? 'Sold out' : 'On sale'
   const url = `${location.origin}/show/${show.id}`
-  const venueTicketed = !show.hostedByMe
-
-  const insight = show.cancelled ? null
-    : sum.pct >= 90 ? `Almost sold out. Consider adding a few more ${sum.tiers[sum.tiers.length - 1]?.tier.name ?? 'GA'} tickets.`
-      : daysOut <= 3 && sum.pct < 50 ? `${daysOut <= 0 ? 'Tonight' : `${daysOut} days out`} and ${sum.pct}% sold. Share the link with your followers to push sales.`
-        : sum.tiers[0] && sum.tiers[0].left <= sum.tiers[0].tier.qty * 0.2 && sum.tiers.length > 1 ? `${sum.tiers[0].tier.name} is nearly gone. Post that prices go up soon.`
-          : `${sum.sold} sold so far. Fans who follow you get notified, and shares bring in most first-time buyers.`
+  const venueTicketed = !show.hostedByMe || show.ticketing === 'venue'
 
   return (
     <Screen className="gig-dash">
@@ -50,14 +43,20 @@ export default function GigDashboard() {
         <Link to={`/show/${show.id}`} className="dash-head">
           <Poster hue={show.hue} photo={show.poster ?? cat.myBand?.photo} className="dash-poster" />
           <div className="min0">
-            <span className={`status-pill s-${status.replace(' ', '-').toLowerCase()}`}>{status}</span>
+            {status !== 'On sale' && <span className="status-pill neutral">{status}</span>}
             <h1 className="dash-title">{show.title}</h1>
             <div className="muted small">{formatDate(show.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTime(show.date)}</div>
             <div className="muted small">{v.name}</div>
           </div>
         </Link>
 
-        {show.draft && (
+        {show.venueApproval === 'pending' && (
+          <div className="draft-banner">
+            <div><b>Waiting on {v.name}</b><div className="small muted">We sent your gig to the venue for approval. It goes live for fans once they confirm.</div></div>
+          </div>
+        )}
+
+        {show.draft && show.venueApproval !== 'pending' && (
           <div className="draft-banner">
             <div><b>This show is a draft</b><div className="small muted">Fans can’t see it or buy tickets yet.</div></div>
             <button className="small-pill white" onClick={() => { updateShow(show.id, { draft: false, publishedAt: new Date().toISOString() }); haptic(30); toast('Published — tickets are on sale') }}>Publish</button>
@@ -65,7 +64,19 @@ export default function GigDashboard() {
         )}
 
         {venueTicketed ? (
-          <div className="insight"><span className="why-ic"><Sparkle /></span><div className="small">{v.name} handles ticketing for this booking. You’ll see attendance in Analytics after the show.</div></div>
+          <div className="venue-ticketing">
+            <b>Ticketing handled by {v.name}</b>
+            <p className="muted small">Fans buy tickets through the venue. After the show, request attendance so it counts toward your analytics.</p>
+            {show.attendance != null ? (
+              <div className="row between center-v"><span className="muted">Attendance reported</span><b className="big">{show.attendance}</b></div>
+            ) : show.attendanceRequestedAt ? (
+              <div className="muted small">Requested {timeAgo(show.attendanceRequestedAt)} · waiting on {v.name}</div>
+            ) : (
+              <button className="secondary-btn" disabled={!past} onClick={() => { updateShow(show.id, { attendanceRequestedAt: new Date().toISOString() }); toast(`Asked ${v.name} for attendance`) }}>
+                {past ? 'Request attendance data' : 'Request attendance after the show'}
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <div className="sales-ring-card">
@@ -81,7 +92,6 @@ export default function GigDashboard() {
               </div>
             </div>
 
-            {insight && <div className="insight"><span className="why-ic"><Sparkle /></span><div><b>Insight</b><div className="small">{insight}</div></div></div>}
 
             <div className="dash-actions">
               <button className="dash-action primary" disabled={!!show.cancelled} onClick={() => nav(`/host/${show.id}/door`)}>

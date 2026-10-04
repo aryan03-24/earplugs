@@ -4,11 +4,12 @@ import { Carousel, Chip, Empty, Field, GlassLink, Logo, Poster, Screen, Sheet } 
 import { Chart, ChevronRight, Edit, Pin, Plus, Trash, User } from '../../components/icons'
 import { GENRES } from '../../data/seed'
 import { KEY_STATS } from '../../data/analytics'
-import { MY_BAND_ID, useCatalog } from '../../state/catalog'
+import { allFanMedia, MY_BAND_ID, useCatalog } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { avatarGradient, formatDate, isPastDate } from '../../lib/format'
 import { resizeImage, toast } from '../../lib/native'
 import { SettingsSheet } from '../account/SettingsSheet'
+import { MediaTile } from '../../components/cards'
 
 /** Artist Profile from the Figma: the musician's own band page, editable in place. */
 export default function ArtistProfile({ toggle }: { toggle: ReactNode }) {
@@ -21,6 +22,7 @@ export default function ArtistProfile({ toggle }: { toggle: ReactNode }) {
   const shows = cat.showsFor(MY_BAND_ID)
   const upcoming = shows.filter(s => !isPastDate(s.date))
   const past = shows.filter(s => isPastDate(s.date)).reverse()
+  const fanMedia = allFanMedia(state).filter(m => m.showId && shows.some(s => s.id === m.showId))
   const stats = KEY_STATS['30D']
   const handle = '@' + (p.username || band.name.toLowerCase().replace(/[^a-z0-9]/g, '') + '.band')
 
@@ -121,7 +123,9 @@ export default function ArtistProfile({ toggle }: { toggle: ReactNode }) {
         <span>Fan Media</span>
         <GlassLink to={`/band/${MY_BAND_ID}`} label="Public page" size={26} />
       </div>
-      <Empty>Photos fans tag {band.name} in will show up here.</Empty>
+      {fanMedia.length
+        ? <Carousel>{fanMedia.map(m => <MediaTile key={m.id} media={m} caption={cat.anyShow(m.showId!)?.title} />)}</Carousel>
+        : <Empty>Photos and videos fans add after your shows will appear here.</Empty>}
 
       <div className="block-title"><span>Past Shows</span></div>
       {past.length ? (

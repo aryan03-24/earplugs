@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Logo, Sheet } from '../../components/ui'
-import { Check, ChevronRight, Plus } from '../../components/icons'
+import { Check, ChevronLeft, ChevronRight, Plus } from '../../components/icons'
 import { GENRES } from '../../data/seed'
 import { useStore } from '../../state/store'
 import { haptic, resizeImage, share, toast } from '../../lib/native'
 import type { Profile } from '../../types'
+
+export const MAX_GENRES = 5
 
 type StepId = 'phone' | 'code' | 'photo' | 'name' | 'artist' | 'home' | 'band' | 'genres' | 'notif' | 'terms'
 
@@ -33,7 +35,6 @@ export default function Setup() {
   const nav = useNavigate()
   const { state, updateProfile, completeOnboarding } = useStore()
   const [code, setCode] = useState(['', '', '', '', '', ''])
-  const [location, setLocation] = useState<'idle' | 'on' | 'off'>('idle')
   const [invite, setInvite] = useState(false)
   const p = state.profile
 
@@ -53,14 +54,14 @@ export default function Setup() {
     artist: p.firstName.trim().length > 0,
     home: p.homeBase.trim().length > 0,
     band: p.artistName.trim().length > 0,
-    genres: p.genres.length > 0,
-    notif: true,
+    genres: p.genres.length > 0 && p.genres.length <= MAX_GENRES,
+    notif: p.location && p.notifications,
     terms: p.acceptedTerms,
   }
 
   const next = () => {
     if (!valid[step]) {
-      toast(step === 'terms' ? 'Please accept the terms to continue' : step === 'photo' ? 'Pick a username (2+ characters)' : 'Please fill this in to continue')
+      toast(step === 'terms' ? 'Please accept the terms to continue' : step === 'notif' ? 'Enable location and notifications to continue' : step === 'photo' ? 'Pick a username (2+ characters)' : 'Please fill this in to continue')
       return
     }
     haptic()
@@ -74,9 +75,7 @@ export default function Setup() {
   return (
     <div className="screen setup">
       <div className="setup-top">
-        <button className="logo-btn" onClick={() => (index === 0 ? nav('/start') : nav(-1))} aria-label="Back">
-          <Logo size={40} />
-        </button>
+        <div className="setup-logo"><Logo size={48} /></div>
         <h1 className="setup-title">{TITLES[step]}</h1>
         <div className="progress" aria-label={`Step ${index + 1} of ${steps.length}`}>
           <div style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
@@ -105,31 +104,31 @@ export default function Setup() {
                 if (f) set({ photo: await resizeImage(f, 400) })
               }} />
             </label>
-            <LightField label="Username" value={p.username} placeholder={artist ? 'sobo.band' : 'anandi.joshi'}
+            <LightField label="Username" value={p.username}
               onChange={v => set({ username: v.toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 24) })} />
           </div>
         )}
 
         {(step === 'name' || step === 'artist') && (
           <>
-            <LightField label={step === 'artist' ? 'Name' : 'First Name'} value={p.firstName} onChange={v => set({ firstName: v })} autoFocus placeholder="Anandi" />
-            <LightField label="Last Name" value={p.lastName} onChange={v => set({ lastName: v })} placeholder="Joshi" />
+            <LightField label="First Name" value={p.firstName} onChange={v => set({ firstName: v })} autoFocus />
+            <LightField label="Last Name" value={p.lastName} onChange={v => set({ lastName: v })} />
           </>
         )}
 
         {step === 'home' && (
           <>
             <p className="setup-copy plain"><b>Home Base</b> is where you spend the most time. This can be your college town or home town.</p>
-            <LightField label="Home Base" value={p.homeBase} onChange={v => set({ homeBase: v })} placeholder="Berkeley, CA" autoFocus />
+            <LightField label="Home Base" value={p.homeBase} onChange={v => set({ homeBase: v })} placeholder="ex. Berkeley, CA" autoFocus />
             <p className="setup-copy plain">Any other place that’s your home away from home</p>
-            <LightField label="Second Location (Optional)" value={p.secondLocation} onChange={v => set({ secondLocation: v })} placeholder="New York City, NY" />
+            <LightField label="Second Location (Optional)" value={p.secondLocation} onChange={v => set({ secondLocation: v })} placeholder="ex. New York City, NY" />
           </>
         )}
 
         {step === 'band' && (
           <>
-            <LightField label="Name of the Band" value={p.artistName} onChange={v => set({ artistName: v })} autoFocus placeholder="SOBO" />
-            <LightField label="Number of Members" value={p.members} onChange={v => set({ members: v.replace(/\D/g, '').slice(0, 2) })} placeholder="4" inputMode="numeric" />
+            <LightField label="Stage Name" value={p.artistName} onChange={v => set({ artistName: v })} autoFocus />
+            <LightField label="Number of Members" value={p.members} onChange={v => set({ members: v.replace(/\D/g, '').slice(0, 2) })} inputMode="numeric" />
             <button type="button" className="outline-btn wide" onClick={() => setInvite(true)}>+ Invite members from your band</button>
             <Sheet open={invite} onClose={() => setInvite(false)} title="Invite your bandmates">
               <p className="muted small">They’ll join {p.artistName || 'your band'}’s page and can manage gigs with you.</p>
@@ -148,8 +147,11 @@ export default function Setup() {
               const on = p.genres.includes(g)
               return (
                 <button type="button" key={g} className={`genre-pill${on ? ' on' : ''}`} aria-pressed={on}
-                  onClick={() => { haptic(); set({ genres: on ? p.genres.filter(x => x !== g) : [...p.genres, g] }) }}>
-                  {g}{on && <span className="dot" />}
+                  onClick={() => {
+                    if (!on && p.genres.length >= MAX_GENRES) { toast(`Pick up to ${MAX_GENRES} genres`); return }
+                    haptic(); set({ genres: on ? p.genres.filter(x => x !== g) : [...p.genres, g] })
+                  }}>
+                  {g}
                 </button>
               )
             })}
@@ -158,19 +160,21 @@ export default function Setup() {
 
         {step === 'notif' && (
           <>
-            <p className="setup-copy">Enable your location and notifications for the best experience.</p>
+            <p className="setup-copy plain">Enable your location and notifications for the best experience.</p>
             <div className="stack center">
-              <button type="button" className={`outline-btn${location === 'on' ? ' on' : ''}`} onClick={() => {
-                if (!navigator.geolocation) { setLocation('off'); toast('Location isn’t available on this device'); return }
-                navigator.geolocation.getCurrentPosition(() => { setLocation('on'); toast('Location on') }, () => { setLocation('off'); toast('Location stays off. You can change this later.') }, { timeout: 8000 })
-              }}>{location === 'on' ? '✓ Location enabled' : 'Enable Location'}{location === 'on' && <span className="dot" />}</button>
+              <button type="button" className={`outline-btn${p.location ? ' on' : ''}`} onClick={() => {
+                // The browser may deny or not support location; the demo still records the choice.
+                navigator.geolocation?.getCurrentPosition(() => {}, () => {}, { timeout: 8000 })
+                set({ location: true }); haptic()
+              }}>{p.location ? '✓ Location enabled' : 'Enable Location'}</button>
               <button type="button" className={`outline-btn${p.notifications ? ' on' : ''}`} onClick={async () => {
                 if ('Notification' in window) {
                   try { await Notification.requestPermission() } catch { /* unsupported */ }
                 }
-                set({ notifications: true })
-              }}>{p.notifications ? '✓ Notifications on' : 'Enable Notifications'}{p.notifications && <span className="dot" />}</button>
+                set({ notifications: true }); haptic()
+              }}>{p.notifications ? '✓ Notifications enabled' : 'Enable Notifications'}</button>
             </div>
+            <p className="muted small center">Both are required so we can show gigs near you and tell you when they drop.</p>
           </>
         )}
 
@@ -194,6 +198,9 @@ export default function Setup() {
           </>
         )}
 
+        <button type="button" className="prev-btn" aria-label="Back" onClick={() => (index === 0 ? nav('/start') : nav(`/setup/${index - 1}`))}>
+          <ChevronLeft size={26} />
+        </button>
         <button type="submit" className={`next-btn${valid[step] ? '' : ' disabled'}`} aria-label="Next">
           <ChevronRight size={30} />
         </button>

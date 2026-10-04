@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { BackButton, Empty, Logo, Poster, SectionHeader } from '../../components/ui'
+import { CloseButton, Empty, Logo, Poster, SectionHeader } from '../../components/ui'
 import { GigRow } from '../../components/cards'
 import { Pin } from '../../components/icons'
 import { useCatalog } from '../../state/catalog'
@@ -18,9 +18,9 @@ export default function VenuePage() {
     <div className="screen">
       <div className="row between pad-x top-bar">
         <Logo />
-        <BackButton />
+        <CloseButton />
       </div>
-      <Poster hue={venue.hue} className="hero short" />
+      <Poster hue={venue.hue} photo={venue.photo} className="hero short" />
       <div className="pad-x">
         <h1 className="show-title">{venue.name}</h1>
         <div className="row gap-sm center-v muted"><Pin size={16} />{venue.address}, {venue.city}</div>

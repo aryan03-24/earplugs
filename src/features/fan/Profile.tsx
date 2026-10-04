@@ -6,7 +6,8 @@ import { GENRES } from '../../data/seed'
 import { handleFor, MY_BAND_ID, useCatalog } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { isPastDate } from '../../lib/format'
-import { resizeImage, toast } from '../../lib/native'
+import { resizeImage, toast, uid } from '../../lib/native'
+import { MediaTile } from '../../components/cards'
 import type { Band } from '../../types'
 import { SettingsSheet } from '../account/SettingsSheet'
 import ArtistProfile from '../musician/ArtistProfile'
@@ -32,12 +33,27 @@ export function ProfileToggle({ band, value, onChange }: { band: string; value: 
 /** Fan Profile from the Figma (also the musician's "Me" view). */
 export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
   const cat = useCatalog()
-  const { state, updateProfile, addMedia } = useStore()
+  const { state, updateProfile, addMedia, markMediaPrompted } = useStore()
   const p = state.profile
-  const [editing, setEditing] = useState<'profile' | 'genres' | null>(null)
+  const [editing, setEditing] = useState<'profile' | 'genres' | 'media' | null>(null)
   const [settings, setSettings] = useState(false)
 
   const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Your Name'
+  const friendCount = state.friends.filter(f => f.status === 'friends').length
+  const attendedShows = [...new Map(state.tickets
+    .map(t => ({ t, s: cat.anyShow(t.showId) }))
+    .filter(x => x.s && !x.t.transferredTo && (isPastDate(x.s.date) || state.checkins[x.s.id]?.includes(x.t.code)))
+    .map(x => [x.s!.id, x.s!])).values()]
+  const attachTo = async (showId: string, f?: File) => {
+    if (!f) return
+    const isVideo = f.type.startsWith('video/')
+    if (isVideo && f.size > 3_000_000) { toast('That video is too large for the demo. Try a shorter clip.'); return }
+    const url = isVideo ? await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(f) }) : await resizeImage(f, 1000)
+    addMedia({ id: uid('media'), url, kind: isVideo ? 'video' : 'image', showId, at: new Date().toISOString() })
+    markMediaPrompted(showId)
+    setEditing(null)
+    toast('Added to your page and the artist’s page')
+  }
   const ticketShows = state.tickets.map(t => cat.anyShow(t.showId)).filter(s => !!s)
   const attended = new Set(ticketShows.filter(s => isPastDate(s.date)).map(s => s.id)).size
   const venuesVisited = new Set(ticketShows.filter(s => isPastDate(s.date)).map(s => s.venueId)).size
@@ -68,7 +84,7 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
           </div>
           <div className="row gap-sm center-v small meta-line">
             <span className="row center-v"><Pin size={14} />{p.homeBase || 'Berkeley, CA'}</span>
-            <span><b>{state.following.length}</b> Following • <b>0</b> Friends</span>
+            <span><b>{state.following.length}</b> Following • <b>{friendCount}</b> Friends</span>
           </div>
         </div>
       </div>
@@ -100,21 +116,16 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
 
       <div className="block-title row between center-v">
         <span>My Media</span>
-        <label className="glass-btn" style={{ width: 28, height: 28 }} aria-label="Add media">
-          <Plus size={14} />
-          <input type="file" accept="image/*" hidden onChange={async e => {
-            const f = e.target.files?.[0]; if (f) { addMedia(await resizeImage(f, 900)); toast('Added to My Media') }
-          }} />
-        </label>
+        <button className="glass-btn" style={{ width: 28, height: 28 }} aria-label="Add media from a show" onClick={() => setEditing('media')}><Plus size={14} /></button>
       </div>
       {state.media.length
-        ? <Carousel>{state.media.map((m, i) => <div key={i} className="media-tile"><Poster hue={0} photo={m} /></div>)}</Carousel>
-        : <Empty>Add photos from shows you’ve been to.</Empty>}
+        ? <Carousel>{state.media.map(m => <MediaTile key={m.id} media={m} caption={m.showId ? cat.anyShow(m.showId)?.title : undefined} />)}</Carousel>
+        : <Empty>After you go to a show, add a photo or video from it here.</Empty>}
 
       <div className="two-col pad-x">
         <div>
           <div className="row between center-v"><h2 className="block-title flush">My Saved</h2><GlassLink to="/plugged" label="All saved" size={26} /></div>
-          {saved[0] ? <Link to={`/show/${saved[0].id}`}><Poster hue={saved[0].hue} label={saved[0].title} className="tile" photo={cat.band(saved[0].bandIds[0])?.photo} /></Link> : <div className="tile empty-tile">Nothing saved</div>}
+          {saved[0] ? <Link to={`/show/${saved[0].id}`}><Poster hue={saved[0].hue} label={saved[0].title} className="tile" photo={saved[0].poster ?? cat.band(saved[0].bandIds[0])?.photo} /></Link> : <div className="tile empty-tile">Nothing saved</div>}
         </div>
         <div>
           <div className="row between center-v"><h2 className="block-title flush">My Tickets</h2><GlassLink to="/tickets" label="All tickets" size={26} /></div>
@@ -141,6 +152,20 @@ export function PersonalProfile({ toggle }: { toggle?: ReactNode }) {
           })}
         </div>
         <button className="primary-btn" onClick={() => setEditing(null)}>Done</button>
+      </Sheet>
+
+      <Sheet open={editing === 'media'} onClose={() => setEditing(null)} title="Add media from a show">
+        {attendedShows.length ? (
+          <div className="menu-list">
+            {attendedShows.map(s => (
+              <label key={s.id} className="attach-row">
+                <span className="grow"><b>{s.title}</b><span className="muted small block">{cat.venue(s.venueId).name}</span></span>
+                <span className="small-pill">Choose</span>
+                <input type="file" accept="image/*,video/*" hidden onChange={e => attachTo(s.id, e.target.files?.[0])} />
+              </label>
+            ))}
+          </div>
+        ) : <p className="muted">Once you’ve been to a show, you can add photos and videos from it here.</p>}
       </Sheet>
 
       <SettingsSheet open={settings} onClose={() => setSettings(false)} />

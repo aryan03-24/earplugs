@@ -27,7 +27,8 @@ export default function Bookings() {
 
   return (
     <Screen tabs>
-      <PageHeader title="My Applications" back="/gigs" right={<Link to="/bookings/apply" className="small-pill white">Get Booked</Link>} />
+      <PageHeader title="My Applications" back="/gigs" />
+      <div className="pad-x"><Link to="/bookings/apply" className="next-pill as-link getbooked-row">GET BOOKED</Link></div>
       <div className="pad-x">
         <Segmented options={TABS} value={tab} onChange={t => setParams(t === 'Applications' ? {} : { tab: t }, { replace: true })} full
           labels={{ Offers: `Offers${offers.length ? ` (${offers.length})` : ''}`, 'Messages Sent': 'Messages' }} />
@@ -87,7 +88,7 @@ export function AppCard({ app, status, onAccept }: { app: Application; status: A
   return (
     <div className="app-card">
       <Link to={`/bookings/${app.id}`} className="app-card-top">
-        <Poster hue={v.hue} className="app-art" label={v.name} />
+        <Poster hue={v.hue} photo={v.photo} className="app-art" label={v.name} />
         <div className="app-meta">
           <div className="row between center-v">
             <b>{v.name}</b>
@@ -106,14 +107,14 @@ export function AppCard({ app, status, onAccept }: { app: Application; status: A
       {status === 'Offered' && (
         <div className="app-actions">
           <button className="act gray" onClick={() => updateApplication(app.id, { decided: 'Withdrawn' })}>Decline</button>
-          <Link to={`/bookings/${app.id}`} className="act blue">Request Additional Date</Link>
+          <Link to={`/bookings/${app.id}`} className="act blue">Reply</Link>
           <button className="act blue" onClick={onAccept}>Accept</button>
         </div>
       )}
       {(status === 'Not reviewed' || status === 'Under review') && (
         <div className="app-actions">
           <button className="act gray" onClick={() => updateApplication(app.id, { decided: 'Withdrawn' })}>Withdraw</button>
-          <Link to={`/bookings/${app.id}`} className="act blue">Message venue</Link>
+          <Link to={`/bookings/${app.id}`} className="act blue">View application</Link>
         </div>
       )}
       {status === 'Booked' && app.showId && (

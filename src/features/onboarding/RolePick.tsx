@@ -3,6 +3,7 @@ import { BackButton, Logo } from '../../components/ui'
 import { Mic, User } from '../../components/icons'
 import { useStore } from '../../state/store'
 import { haptic } from '../../lib/native'
+import { ROLE_PHOTO } from '../../data/media'
 import type { Role } from '../../types'
 
 /** Login Screen 2 from the Figma: "Who are you?" */
@@ -27,7 +28,7 @@ export default function RolePick() {
           {([['fan', 'Fan', <User key="u" size={44} />], ['musician', 'Musician', <Mic key="m" size={44} />]] as const).map(([role, label, icon]) => (
             <button key={role} className="role-option" onClick={() => pick(role)}>
               <span className="role-label">{label}</span>
-              <span className="role-circle">{icon}</span>
+              <span className="role-circle" style={{ backgroundImage: `url(${ROLE_PHOTO[role]})` }} aria-hidden>{icon}</span>
             </button>
           ))}
         </div>

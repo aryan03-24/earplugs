@@ -49,7 +49,7 @@ export default function Pitch() {
 
       <div className="pad-x">
         <div className="prepared">
-          <Poster hue={venue.hue} className="prep-thumb" />
+          <Poster hue={venue.hue} photo={venue.photo} className="prep-thumb" />
           <div className="grow"><small className="muted">PREPARED FOR</small><div>{venue.name}, {short}</div></div>
           <button className="small-pill" onClick={() => setPicking(p => !p)}>{picking ? 'Done' : 'Edit'}</button>
         </div>
@@ -67,6 +67,7 @@ export default function Pitch() {
           <div className="band-avatar" style={band.photo ? { backgroundImage: `url(${band.photo})` } : { background: avatarGradient(band.hue) }} />
           <h1>{band.name}</h1>
           <div className="meta">{band.city} • {band.followers} Followers</div>
+          <div className="meta">{state.profile.members ? `${state.profile.members} members` : 'Solo artist'}</div>
           {band.tagline && <div className="tagline">{band.tagline}</div>}
           <div className="chip-row center-h">{band.genres.map(g => <Chip key={g} blue>{g}</Chip>)}</div>
         </div>
@@ -108,7 +109,7 @@ export default function Pitch() {
         <div className="list-card">
           {RECENT_SHOWS.slice(0, 3).map((p, i) => (
             <div key={p.day} className="recent-row">
-              <Poster hue={200 + i * 20} className="prep-thumb" />
+              <Poster hue={200 + i * 20} photo={cat.venues.find(v => v.name === p.venue)?.photo} className="prep-thumb" />
               <div className="grow"><b>{p.venue}</b><div className="muted small">{p.city} · {p.month[0]}{p.month.slice(1).toLowerCase()} {p.day}</div></div>
               <div className="center"><b className="big">{p.attended}</b><div className="muted small">attended</div></div>
             </div>

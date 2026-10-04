@@ -1,5 +1,5 @@
 // Offline support: cache the app shell and assets as they load.
-const CACHE = 'earplug-v2'
+const CACHE = 'earplug-v3'
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/manifest.webmanifest'])))
   self.skipWaiting()

@@ -2,8 +2,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ear from '../assets/ear.png'
-import { ChevronLeft, ChevronRight } from './icons'
-import { avatarGradient, gradient, initials } from '../lib/format'
+import { ChevronLeft, ChevronRight, Close } from './icons'
+import { avatarGradient, initials } from '../lib/format'
+import { fallbackPhoto } from '../data/media'
 import { haptic } from '../lib/native'
 import { TabBar } from './TabBar'
 
@@ -64,6 +65,15 @@ export function BackButton({ to }: { to?: string }) {
   )
 }
 
+export function CloseButton({ to }: { to?: string }) {
+  const nav = useNavigate()
+  return (
+    <GlassButton size={32} aria-label="Close" onClick={() => (to ? nav(to) : window.history.length > 1 ? nav(-1) : nav('/'))}>
+      <Close size={15} />
+    </GlassButton>
+  )
+}
+
 export function Chip({ children, active, blue, onClick, tone }: { children: ReactNode; active?: boolean; blue?: boolean; onClick?: () => void; tone?: string }) {
   const cls = `chip${active ? ' active' : ''}${blue ? ' blue' : ''}${tone ? ` tone-${tone}` : ''}`
   return onClick ? (
@@ -97,10 +107,10 @@ export function SectionHeader({ title, to, action }: { title: ReactNode; to?: st
   )
 }
 
-/** Poster art: a photo when available, otherwise a generated gradient. */
+/** Poster art: the given photo, or a stable crowd shot when none is set. */
 export function Poster({ hue, label, photo, className = '', children }: { hue: number; label?: string; photo?: string; className?: string; children?: ReactNode }) {
   return (
-    <div className={`poster ${className}`} style={photo ? { backgroundImage: `url(${photo})` } : { background: gradient(hue) }}>
+    <div className={`poster ${className}`} style={{ backgroundImage: `url(${photo ?? fallbackPhoto(hue)})` }}>
       {label && <span className="poster-label">{label}</span>}
       {children}
     </div>

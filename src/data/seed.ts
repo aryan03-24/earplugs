@@ -1,6 +1,5 @@
 // Sample content for the prototype. Swap for API calls when a backend exists.
-import live1 from '../assets/live1.jpg'
-import live2 from '../assets/live2.jpg'
+import { RED_STRAT, SOBO, VARSITY, VENUE_PHOTO } from './media'
 import type { Application, Band, Friend, OpenGig, Show, Venue } from '../types'
 
 export const GENRES = [
@@ -9,26 +8,26 @@ export const GENRES = [
 ]
 
 export const VENUES: Venue[] = [
-  { id: 'starry', name: 'The Starry Plough', city: 'Berkeley', address: '3101 Shattuck Ave', lat: 37.8553, lng: -122.2669, capacity: 150, ages: '21+', hue: 215 },
-  { id: 'parish', name: 'The New Parish', city: 'Oakland', address: '1743 San Pablo Ave', lat: 37.8066, lng: -122.2735, capacity: 400, ages: '18+', hue: 265 },
-  { id: 'cornerstone', name: 'Cornerstone', city: 'Berkeley', address: '2367 Shattuck Ave', lat: 37.8669, lng: -122.2678, capacity: 600, ages: 'All ages', hue: 20 },
-  { id: 'eli', name: "Eli's Mile High Club", city: 'Oakland', address: '3629 MLK Jr Way', lat: 37.8278, lng: -122.2709, capacity: 120, ages: '21+', hue: 340 },
-  { id: 'gilman', name: '924 Gilman', city: 'Berkeley', address: '924 Gilman St', lat: 37.8796, lng: -122.2993, capacity: 300, ages: 'All ages', hue: 110 },
-  { id: 'bottom', name: 'Bottom of the Hill', city: 'San Francisco', address: '1233 17th St', lat: 37.765, lng: -122.3963, capacity: 350, ages: '21+', hue: 190 },
-  { id: 'freight', name: 'Freight & Salvage', city: 'Berkeley', address: '2020 Addison St', lat: 37.871, lng: -122.269, capacity: 440, ages: 'All ages', hue: 45 },
+  { id: 'starry', name: 'The Starry Plough', city: 'Berkeley', address: '3101 Shattuck Ave', lat: 37.8553, lng: -122.2669, capacity: 150, ages: '21+', hue: 215, photo: VENUE_PHOTO.starry },
+  { id: 'parish', name: 'The New Parish', city: 'Oakland', address: '1743 San Pablo Ave', lat: 37.8066, lng: -122.2735, capacity: 400, ages: '18+', hue: 265, photo: VENUE_PHOTO.parish },
+  { id: 'cornerstone', name: 'Cornerstone', city: 'Berkeley', address: '2367 Shattuck Ave', lat: 37.8669, lng: -122.2678, capacity: 600, ages: 'All ages', hue: 20, photo: VENUE_PHOTO.cornerstone },
+  { id: 'eli', name: "Eli's Mile High Club", city: 'Oakland', address: '3629 MLK Jr Way', lat: 37.8278, lng: -122.2709, capacity: 120, ages: '21+', hue: 340, photo: VENUE_PHOTO.eli },
+  { id: 'gilman', name: '924 Gilman', city: 'Berkeley', address: '924 Gilman St', lat: 37.8796, lng: -122.2993, capacity: 300, ages: 'All ages', hue: 110, photo: VENUE_PHOTO.gilman },
+  { id: 'bottom', name: 'Bottom of the Hill', city: 'San Francisco', address: '1233 17th St', lat: 37.765, lng: -122.3963, capacity: 350, ages: '21+', hue: 190, photo: VENUE_PHOTO.bottom },
+  { id: 'freight', name: 'Freight & Salvage', city: 'Berkeley', address: '2020 Addison St', lat: 37.871, lng: -122.269, capacity: 440, ages: 'All ages', hue: 45, photo: VENUE_PHOTO.freight },
 ]
 
 export const BANDS: Band[] = [
-  { id: 'sobo', name: 'SOBO', genres: ['Indie', 'Alternative', 'Rock'], city: 'Berkeley, CA', tagline: 'Suns Out Buns Out', bio: 'SOBO is a band from UC Berkeley made up of Matthew Fehr (Drums), Mathew Dip (Lead Guitar), Gala Basco (Lead Vocals + Rhythm Guitar), & Anandi Joshi (Bass Guitar).', followers: 640, hue: 230, photo: live1, media: [live1, live2] },
-  { id: 'youthquake', name: 'YouthQuake', genres: ['Punk', 'Rock'], city: 'Oakland, CA', tagline: 'Loud, fast, local', bio: 'Four-piece East Bay punk band playing basements and back rooms since 2024.', followers: 412, hue: 0, media: [] },
-  { id: 'velvet', name: 'Velvet Static', genres: ['Indie', 'Pop'], city: 'Berkeley, CA', tagline: 'Dream pop for night drives', bio: 'Hazy guitars, big choruses, and a drum machine named Gary.', followers: 289, hue: 290, media: [] },
-  { id: 'lowtide', name: 'Low Tide Choir', genres: ['Jazz', 'R&B'], city: 'San Francisco, CA', tagline: 'Neo-soul collective', bio: 'A rotating cast of SF musicians blending jazz harmony with R&B grooves.', followers: 905, hue: 190, media: [] },
-  { id: 'mosspit', name: 'Moss Pit', genres: ['Punk', 'Alternative'], city: 'Berkeley, CA', tagline: 'Garden-variety punk', bio: 'Three friends, two chords, one van that mostly works.', followers: 158, hue: 120, media: [] },
-  { id: 'kilowatt', name: 'Kilowatt Kids', genres: ['EDM', 'Pop'], city: 'Oakland, CA', tagline: 'Bedroom bangers', bio: 'Live electronic duo with synths, samplers, and too many cables.', followers: 733, hue: 50, media: [] },
-  { id: 'dustbowl', name: 'Dust Bowl Revival', genres: ['Country', 'Blues'], city: 'Berkeley, CA', tagline: 'Porch songs, amplified', bio: 'Americana trio with banjo, slide guitar and three-part harmonies.', followers: 377, hue: 30, media: [] },
-  { id: 'versefive', name: 'Verse Five', genres: ['Hiphop', 'R&B'], city: 'Oakland, CA', tagline: 'Bay Area bars', bio: 'Hip-hop crew with a live band backing every set.', followers: 1204, hue: 330, media: [] },
-  { id: 'seoulmate', name: 'Seoul Mate', genres: ['K-pop', 'Pop'], city: 'San Francisco, CA', tagline: 'Bilingual bops', bio: 'Five-piece K-pop cover and originals group from SF State.', followers: 862, hue: 310, media: [] },
-  { id: 'quartet', name: 'Addison Quartet', genres: ['Classical', 'Jazz'], city: 'Berkeley, CA', tagline: 'Strings, unplugged', bio: 'Berkeley conservatory students reimagining pop songs for string quartet.', followers: 221, hue: 170, media: [] },
+  { id: 'sobo', name: 'SOBO', genres: ['Indie', 'Alternative', 'Rock'], city: 'Berkeley, CA', tagline: 'Suns Out Buns Out', bio: 'SOBO is a band from UC Berkeley made up of Matthew Fehr (Drums), Mathew Dip (Lead Guitar), Gala Basco (Lead Vocals + Rhythm Guitar), & Anandi Joshi (Bass Guitar).', followers: 640, hue: 230, photo: SOBO.group, media: SOBO.clips },
+  { id: 'youthquake', name: 'YouthQuake', genres: ['Punk', 'Rock'], city: 'Oakland, CA', tagline: 'Loud, fast, local', bio: 'Four-piece East Bay punk band playing basements and back rooms since 2024.', followers: 412, hue: 0, photo: RED_STRAT.group, media: RED_STRAT.clips },
+  { id: 'velvet', name: 'Velvet Static', genres: ['Indie', 'Pop'], city: 'Berkeley, CA', tagline: 'Dream pop for night drives', bio: 'Hazy guitars, big choruses, and a drum machine named Gary.', followers: 289, hue: 290, photo: VARSITY.group, media: VARSITY.clips },
+  { id: 'lowtide', name: 'Low Tide Choir', genres: ['Jazz', 'R&B'], city: 'San Francisco, CA', tagline: 'Neo-soul collective', bio: 'A rotating cast of SF musicians blending jazz harmony with R&B grooves.', followers: 905, hue: 190, photo: VARSITY.members[3], media: [VARSITY.members[3], VARSITY.clips[0]] },
+  { id: 'mosspit', name: 'Moss Pit', genres: ['Punk', 'Alternative'], city: 'Berkeley, CA', tagline: 'Garden-variety punk', bio: 'Three friends, two chords, one van that mostly works.', followers: 158, hue: 120, photo: VARSITY.members[1], media: [VARSITY.members[1]] },
+  { id: 'kilowatt', name: 'Kilowatt Kids', genres: ['EDM', 'Pop'], city: 'Oakland, CA', tagline: 'Bedroom bangers', bio: 'Live electronic duo with synths, samplers, and too many cables.', followers: 733, hue: 50, photo: VARSITY.members[2], media: [VARSITY.members[2], VARSITY.hero] },
+  { id: 'dustbowl', name: 'Dust Bowl Revival', genres: ['Country', 'Blues'], city: 'Berkeley, CA', tagline: 'Porch songs, amplified', bio: 'Americana trio with banjo, slide guitar and three-part harmonies.', followers: 377, hue: 30, photo: RED_STRAT.clips[2], media: [RED_STRAT.clips[2], RED_STRAT.members[2]] },
+  { id: 'versefive', name: 'Verse Five', genres: ['Hiphop', 'R&B'], city: 'Oakland, CA', tagline: 'Bay Area bars', bio: 'Hip-hop crew with a live band backing every set.', followers: 1204, hue: 330, photo: RED_STRAT.clips[3], media: [RED_STRAT.clips[3], RED_STRAT.members[1]] },
+  { id: 'seoulmate', name: 'Seoul Mate', genres: ['K-pop', 'Pop'], city: 'San Francisco, CA', tagline: 'Bilingual bops', bio: 'Five-piece K-pop cover and originals group from SF State.', followers: 862, hue: 310, photo: VARSITY.clips[0], media: [VARSITY.clips[0], VARSITY.members[0]] },
+  { id: 'quartet', name: 'Addison Quartet', genres: ['Classical', 'Jazz'], city: 'Berkeley, CA', tagline: 'Strings, unplugged', bio: 'Berkeley conservatory students reimagining pop songs for string quartet.', followers: 221, hue: 170, photo: VARSITY.clips[2], media: [VARSITY.clips[2], VARSITY.clips[1]] },
 ]
 
 export const FRIENDS: Friend[] = [
@@ -50,22 +49,22 @@ function day(offset: number, hour: number) {
 }
 
 export const SHOWS: Show[] = [
-  { id: 's1', title: 'Sunset Sessions', venueId: 'starry', bandIds: ['sobo', 'velvet'], date: day(0, 19), price: 0, genres: ['Indie', 'Alternative', 'Rock'], hue: 230, plugging: 8 },
-  { id: 's2', title: 'Basement Riot', venueId: 'gilman', bandIds: ['youthquake', 'mosspit'], date: day(0, 20), price: 12, genres: ['Punk', 'Rock'], hue: 0, plugging: 3 },
-  { id: 's3', title: 'Neo Soul Night', venueId: 'freight', bandIds: ['lowtide'], date: day(1, 20), price: 18, genres: ['Jazz', 'R&B'], hue: 190, plugging: 5 },
-  { id: 's4', title: 'Synth City', venueId: 'parish', bandIds: ['kilowatt'], date: day(2, 21), price: 15, genres: ['EDM', 'Pop'], hue: 50, plugging: 11 },
-  { id: 's5', title: 'Porch Light', venueId: 'cornerstone', bandIds: ['dustbowl'], date: day(3, 19), price: 0, genres: ['Country', 'Blues'], hue: 30, plugging: 2 },
-  { id: 's6', title: 'Bars & Brass', venueId: 'eli', bandIds: ['versefive', 'lowtide'], date: day(4, 21), price: 10, genres: ['Hiphop', 'R&B'], hue: 330, plugging: 6 },
-  { id: 's7', title: 'SOBO Live in SF', venueId: 'bottom', bandIds: ['sobo'], date: day(6, 20), price: 10, genres: ['Indie', 'Alternative', 'Rock'], hue: 250, plugging: 14 },
-  { id: 's8', title: 'Dream Pop Drive', venueId: 'cornerstone', bandIds: ['velvet', 'kilowatt'], date: day(8, 20), price: 8, genres: ['Indie', 'Pop'], hue: 290, plugging: 4 },
-  { id: 's9', title: 'Gilman All-Ages', venueId: 'gilman', bandIds: ['mosspit', 'youthquake', 'sobo'], date: day(10, 18), price: 0, genres: ['Punk', 'Alternative'], hue: 120, plugging: 9 },
-  { id: 's10', title: 'Late Night Jazz', venueId: 'freight', bandIds: ['lowtide', 'quartet'], date: day(12, 22), price: 20, genres: ['Jazz', 'Classical'], hue: 200, plugging: 1 },
-  { id: 's11', title: 'K-Pop Takeover', venueId: 'parish', bandIds: ['seoulmate'], date: day(5, 20), price: 14, genres: ['K-pop', 'Pop'], hue: 310, plugging: 7 },
-  { id: 's12', title: 'Strings Attached', venueId: 'freight', bandIds: ['quartet'], date: day(9, 19), price: 0, genres: ['Classical'], hue: 170, plugging: 2 },
+  { id: 's1', title: 'Sunset Sessions', venueId: 'starry', bandIds: ['sobo', 'velvet'], date: day(0, 19), price: 0, genres: ['Indie', 'Alternative', 'Rock'], hue: 230, plugging: 8, poster: SOBO.hero },
+  { id: 's2', title: 'Basement Riot', venueId: 'gilman', bandIds: ['youthquake', 'mosspit'], date: day(0, 20), price: 12, genres: ['Punk', 'Rock'], hue: 0, plugging: 3, poster: RED_STRAT.clips[0] },
+  { id: 's3', title: 'Neo Soul Night', venueId: 'freight', bandIds: ['lowtide'], date: day(1, 20), price: 18, genres: ['Jazz', 'R&B'], hue: 190, plugging: 5, poster: VARSITY.members[3] },
+  { id: 's4', title: 'Synth City', venueId: 'parish', bandIds: ['kilowatt'], date: day(2, 21), price: 15, genres: ['EDM', 'Pop'], hue: 50, plugging: 11, poster: VARSITY.members[2] },
+  { id: 's5', title: 'Porch Light', venueId: 'cornerstone', bandIds: ['dustbowl'], date: day(3, 19), price: 0, genres: ['Country', 'Blues'], hue: 30, plugging: 2, poster: RED_STRAT.clips[2] },
+  { id: 's6', title: 'Bars & Brass', venueId: 'eli', bandIds: ['versefive', 'lowtide'], date: day(4, 21), price: 10, genres: ['Hiphop', 'R&B'], hue: 330, plugging: 6, poster: RED_STRAT.clips[3] },
+  { id: 's7', title: 'SOBO Live in SF', venueId: 'bottom', bandIds: ['sobo'], date: day(6, 20), price: 10, genres: ['Indie', 'Alternative', 'Rock'], hue: 250, plugging: 14, poster: SOBO.clips[2] },
+  { id: 's8', title: 'Dream Pop Drive', venueId: 'cornerstone', bandIds: ['velvet', 'kilowatt'], date: day(8, 20), price: 8, genres: ['Indie', 'Pop'], hue: 290, plugging: 4, poster: VARSITY.hero },
+  { id: 's9', title: 'Gilman All-Ages', venueId: 'gilman', bandIds: ['mosspit', 'youthquake', 'sobo'], date: day(10, 18), price: 0, genres: ['Punk', 'Alternative'], hue: 120, plugging: 9, poster: SOBO.clips[3] },
+  { id: 's10', title: 'Late Night Jazz', venueId: 'freight', bandIds: ['lowtide', 'quartet'], date: day(12, 22), price: 20, genres: ['Jazz', 'Classical'], hue: 200, plugging: 1, poster: VARSITY.clips[2] },
+  { id: 's11', title: 'K-Pop Takeover', venueId: 'parish', bandIds: ['seoulmate'], date: day(5, 20), price: 14, genres: ['K-pop', 'Pop'], hue: 310, plugging: 7, poster: VARSITY.clips[0] },
+  { id: 's12', title: 'Strings Attached', venueId: 'freight', bandIds: ['quartet'], date: day(9, 19), price: 0, genres: ['Classical'], hue: 170, plugging: 2, poster: VARSITY.clips[1] },
   // Past shows
-  { id: 'p1', title: 'Fall Kickoff', venueId: 'starry', bandIds: ['sobo'], date: day(-6, 20), price: 8, genres: ['Indie', 'Rock'], hue: 220, plugging: 0 },
-  { id: 'p2', title: 'Parish Presents', venueId: 'parish', bandIds: ['sobo', 'velvet'], date: day(-10, 20), price: 10, genres: ['Indie'], hue: 260, plugging: 0 },
-  { id: 'p3', title: 'Cornerstone Locals', venueId: 'cornerstone', bandIds: ['sobo'], date: day(-14, 19), price: 6, genres: ['Rock'], hue: 210, plugging: 0 },
+  { id: 'p1', title: 'Fall Kickoff', venueId: 'starry', bandIds: ['sobo'], date: day(-6, 20), price: 8, genres: ['Indie', 'Rock'], hue: 220, plugging: 0, poster: SOBO.clips[0] },
+  { id: 'p2', title: 'Parish Presents', venueId: 'parish', bandIds: ['sobo', 'velvet'], date: day(-10, 20), price: 10, genres: ['Indie'], hue: 260, plugging: 0, poster: SOBO.clips[1] },
+  { id: 'p3', title: 'Cornerstone Locals', venueId: 'cornerstone', bandIds: ['sobo'], date: day(-14, 19), price: 6, genres: ['Rock'], hue: 210, plugging: 0, poster: SOBO.more[10] },
 ]
 
 function isoDay(offset: number) {

@@ -1,28 +1,25 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Chip, Empty, Poster, Sheet } from '../../components/ui'
+import { Chip, Empty, Poster } from '../../components/ui'
 import { Search } from '../../components/icons'
 import { OPEN_GIGS } from '../../data/seed'
-import { KEY_STATS, RECENT_SHOWS } from '../../data/analytics'
 import { APPLY_LABEL, appStatus, useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
-import { distanceKm, formatDate, formatTime, money } from '../../lib/format'
-import { haptic, toast, uid } from '../../lib/native'
+import { formatDate, formatTime, money } from '../../lib/format'
 import type { OpenGig } from '../../types'
+import { kmFrom, type City } from './BookingLocation'
 
 const FILTERS = ['Fits my genre', 'This month', 'Paid', 'By distance'] as const
 type Filter = (typeof FILTERS)[number]
 
-/** "Find gigs": venues' open slots, quick apply with the pitch report attached. */
-export default function FindGigs() {
+/** "Find gigs": venues' open slots near your booking area. Apply opens the booking flow at the pitch step. */
+export default function FindGigs({ city, radius }: { city: City; radius: number }) {
   const nav = useNavigate()
   const cat = useCatalog()
   const now = useNow(5000)
-  const { state, submitApplication } = useStore()
+  const { state } = useStore()
   const [q, setQ] = useState('')
   const [filters, setFilters] = useState<Filter[]>([])
-  const [applying, setApplying] = useState<OpenGig | null>(null)
-  const [note, setNote] = useState('')
   const band = cat.myBand!
   const myGenres = band.genres
 
@@ -37,7 +34,7 @@ export default function FindGigs() {
 
   const gigs = useMemo(() => {
     const s = q.trim().toLowerCase()
-    let list = OPEN_GIGS.filter(g => new Date(g.applyBy).getTime() > Date.now())
+    let list = OPEN_GIGS.filter(g => new Date(g.applyBy).getTime() > Date.now() && kmFrom(city, cat.venue(g.venueId)) <= radius)
     if (s) list = list.filter(g => {
       const v = cat.venue(g.venueId)
       return [v.name, v.city, formatDate(g.date, { month: 'long', day: 'numeric', weekday: 'long' }), ...g.genres, g.slot].some(t => t.toLowerCase().includes(s))
@@ -49,29 +46,10 @@ export default function FindGigs() {
     }
     if (filters.includes('Paid')) list = list.filter(g => g.pay > 0)
     list = [...list].sort((a, b) => filters.includes('By distance')
-      ? distanceKm(cat.venue(a.venueId)) - distanceKm(cat.venue(b.venueId))
+      ? kmFrom(city, cat.venue(a.venueId)) - kmFrom(city, cat.venue(b.venueId))
       : a.date.localeCompare(b.date))
     return list
-  }, [q, filters, cat, myGenres])
-
-  const send = () => {
-    if (!applying) return
-    const g = applying
-    const v = cat.venue(g.venueId)
-    const day = new Date(g.date).toISOString().slice(0, 10)
-    const stats = KEY_STATS['30D']
-    submitApplication({
-      id: uid('app'), venueId: g.venueId, openGigId: g.id, createdAt: new Date().toISOString(),
-      actName: band.name, email: '', members: state.profile.members, targetStart: day, targetEnd: day, website: '',
-      draw: `${stats.attendance} avg`, soundsLike: '', videos: [], genres: band.genres,
-      lastShows: RECENT_SHOWS.slice(0, 3).map(s => `${s.venue} (${s.attended})`).join(', '), bill: '', offerDate: g.date,
-      messages: [{ from: 'me', text: note.trim() || `Hi ${v.name}! We’d love the ${g.slot.toLowerCase()} slot on ${formatDate(g.date, { month: 'short', day: 'numeric' })}. Pitch report attached: ${stats.attendance} avg. attendance, ${stats.showUp}% show-up rate.`, at: new Date().toISOString() }],
-    })
-    haptic(25)
-    toast(`Applied to ${v.name}`)
-    setApplying(null)
-    setNote('')
-  }
+  }, [q, filters, cat, myGenres, city, radius])
 
   return (
     <>
@@ -96,7 +74,7 @@ export default function FindGigs() {
           return (
             <div key={g.id} className="open-gig">
               <div className="row gap center-v">
-                <Poster hue={v.hue} className="og-thumb" />
+                <Poster hue={v.hue} photo={v.photo} className="og-thumb" />
                 <div className="grow min0">
                   <b className="og-venue">{v.name}</b>
                   <div className="small muted">{formatDate(g.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTime(g.date)}</div>
@@ -113,40 +91,23 @@ export default function FindGigs() {
                 {app ? (
                   <button className="og-status" onClick={() => nav(`/bookings/${app.a.id}`)}>{APPLY_LABEL[app.status]} ›</button>
                 ) : (
-                  <button className="og-apply" onClick={() => setApplying(g)}>Apply</button>
+                  <button className="og-apply" onClick={() => nav(`/bookings/apply?gig=${g.id}`)}>Apply</button>
                 )}
               </div>
             </div>
           )
         })}
-        {!gigs.length && <Empty>No open gigs match. Try removing a filter.</Empty>}
+        {!gigs.length && <Empty>No open gigs within {radius} km of {city}. Try a wider distance or remove a filter.</Empty>}
       </div>
 
       <div className="pad-x">
-        <Link to="/bookings/apply" className="pitch-direct">
-          <div><b>Don’t see a fit?</b><div className="muted small">Pitch any venue directly with the full Get Booked application.</div></div>
-          <span className="small-pill white">Get Booked</span>
-        </Link>
+        <div className="pitch-direct">
+          <div><b>Don’t see a fit?</b><div className="muted small">Pitch any venue near {city.split(',')[0]} directly.</div></div>
+        </div>
+        <Link to="/bookings/apply" className="next-pill as-link">GET BOOKED</Link>
         <Link to="/applications" className="secondary-btn">My applications</Link>
       </div>
 
-      <Sheet open={!!applying} onClose={() => setApplying(null)} title={applying ? `Apply to ${cat.venue(applying.venueId).name}` : ''}>
-        {applying && (
-          <>
-            <p className="muted small">{applying.slot} · {applying.setLength} min · {formatDate(applying.date, { weekday: 'short', month: 'short', day: 'numeric' })} at {formatTime(applying.date)} · {applying.pay ? money(applying.pay) : 'Door split'}</p>
-            <div className="pitch-attach">
-              <div className="row between center-v"><b>Pitch report attached</b><Link to="/pitch" className="link small">Preview</Link></div>
-              <div className="analytics-mini">
-                <div><b>{KEY_STATS['30D'].attendance}</b><span>Avg. attendance</span></div>
-                <div><b>{KEY_STATS['30D'].showUp}%</b><span>Show-up rate</span></div>
-                <div><b>${KEY_STATS['30D'].avgTicket}</b><span>Avg. ticket</span></div>
-              </div>
-            </div>
-            <textarea className="dark-input" rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note (optional): set length, gear, who you’d bring…" />
-            <button className="primary-btn" onClick={send}>Send application</button>
-          </>
-        )}
-      </Sheet>
     </>
   )
 }

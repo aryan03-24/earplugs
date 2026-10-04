@@ -10,6 +10,7 @@ export interface Venue {
   capacity: number
   ages: string
   hue: number
+  photo?: string
   /** Created by a musician for a self-hosted gig (house show, backyard, etc.). */
   custom?: boolean
 }
@@ -50,6 +51,29 @@ export interface Show {
   loadIn?: string // "17:00"
   setTime?: string // "21:15", when the host band goes on
   draft?: boolean // saved but not published to fans
+  /** Who sells tickets: EarPlug (musician runs the door) or the venue's own system. */
+  ticketing?: 'earplug' | 'venue'
+  /** Gigs at a registered venue wait for the venue to approve them. */
+  venueApproval?: 'pending' | 'approved'
+  approvalRequestedAt?: string
+  /** Venue-ticketed gigs: attendance reported back by the venue after the show. */
+  attendanceRequestedAt?: string
+  attendance?: number
+}
+
+/** Fan-uploaded photo/video from a show they attended. */
+export interface FanMedia {
+  id: string
+  url: string
+  kind: 'image' | 'video'
+  showId?: string
+  at: string
+}
+
+export interface Friendship {
+  id: string // friend id
+  status: 'requested' | 'friends'
+  at: string
 }
 
 /** A slot a venue has posted for musicians to apply to ("Open gigs near you"). */
@@ -154,6 +178,7 @@ export interface Profile {
   secondLocation: string
   genres: string[]
   notifications: boolean
+  location: boolean
   acceptedTerms: boolean
   onboarded: boolean
   signedIn: boolean

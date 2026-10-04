@@ -22,6 +22,8 @@ export default function ApplicationDetail() {
   const venue = cat.venue(app.venueId)
   const status = appStatus(app, now)
   const msgs = appMessages(app, venue.name, now)
+  // Musicians can only message a venue after the venue has written first.
+  const canReply = msgs.some(m => m.from === 'venue') && status !== 'Declined' && status !== 'Withdrawn'
 
   const send = () => {
     const text = draft.trim()
@@ -65,10 +67,14 @@ export default function ApplicationDetail() {
         </div>
       </div>
 
-      <form className="composer" onSubmit={e => { e.preventDefault(); send() }}>
-        <input value={draft} onChange={e => setDraft(e.target.value)} placeholder={status === 'Offered' ? 'Ask for another date…' : `Message ${venue.name}`} aria-label="Message" enterKeyHint="send" />
-        <button type="submit" aria-label="Send" disabled={!draft.trim()}><Send /></button>
-      </form>
+      {canReply ? (
+        <form className="composer" onSubmit={e => { e.preventDefault(); send() }}>
+          <input value={draft} onChange={e => setDraft(e.target.value)} placeholder={status === 'Offered' ? 'Ask for another date…' : `Reply to ${venue.name}`} aria-label="Message" enterKeyHint="send" />
+          <button type="submit" aria-label="Send" disabled={!draft.trim()}><Send /></button>
+        </form>
+      ) : (
+        <div className="composer locked">You can reply once {venue.name} messages you.</div>
+      )}
     </Screen>
   )
 }

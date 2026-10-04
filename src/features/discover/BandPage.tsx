@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { BackButton, Carousel, Chip, Empty, Field, GlassButton, Logo, Poster, SectionHeader, Sheet } from '../../components/ui'
+import { CloseButton, Carousel, Chip, Empty, Field, GlassButton, Logo, Poster, SectionHeader, Sheet } from '../../components/ui'
 import { Edit, Pin, Play, Plus, Share } from '../../components/icons'
-import { MY_BAND_ID, useCatalog } from '../../state/catalog'
+import { allFanMedia, MY_BAND_ID, useCatalog } from '../../state/catalog'
+import { MediaTile } from '../../components/cards'
 import { useStore } from '../../state/store'
 import { avatarGradient, formatDate, isPastDate } from '../../lib/format'
 import { haptic, resizeImage, share, toast } from '../../lib/native'
@@ -21,7 +22,9 @@ export default function BandPage() {
   const following = state.following.includes(band.id)
   const shows = cat.showsFor(band.id)
   const upcoming = shows.filter(s => !isPastDate(s.date))
-  const past = shows.filter(s => isPastDate(s.date)).reverse()
+  const past = shows.filter(s => isPastDate(s.date) || state.media.some(m => m.showId === s.id)).reverse()
+  // Fan photos/videos tagged to any of this band's gigs.
+  const fanMedia = allFanMedia(state).filter(m => m.showId && shows.some(s => s.id === m.showId))
 
   const addMedia = async (f?: File) => {
     if (!f) return
@@ -35,7 +38,7 @@ export default function BandPage() {
         <Logo />
         <div className="row gap-sm">
           <GlassButton aria-label="Share" onClick={() => share(band.name, `Check out ${band.name} on EarPlug`)}><Share size={18} /></GlassButton>
-          <BackButton />
+          <CloseButton />
         </div>
       </div>
 
@@ -82,21 +85,28 @@ export default function BandPage() {
       {upcoming.length ? (
         <Carousel>{upcoming.map(s => (
           <Link key={s.id} to={`/show/${s.id}`} className="media-tile">
-            <Poster hue={s.hue} label={formatDate(s.date, { month: 'short', day: 'numeric' })} />
+            <Poster hue={s.hue} photo={s.poster} label={formatDate(s.date, { month: 'short', day: 'numeric' })} />
           </Link>
         ))}</Carousel>
       ) : <Empty>No upcoming shows yet.</Empty>}
 
       <SectionHeader title="Fan Media" />
-      {band.media.length > 1 ? (
-        <Carousel>{band.media.slice().reverse().map((p, i) => <div key={i} className="media-tile"><Poster hue={band.hue} photo={p} /></div>)}</Carousel>
-      ) : <Empty>No fan media yet.</Empty>}
+      {fanMedia.length ? (
+        <Carousel>{fanMedia.map(m => <MediaTile key={m.id} media={m} caption={cat.anyShow(m.showId!)?.title} />)}</Carousel>
+      ) : <Empty>No fan media yet. Fans can add photos and videos after they go to a show.</Empty>}
 
       <SectionHeader title="Past Shows" />
       {past.length ? (
-        <Carousel>{past.map(s => (
-          <div key={s.id} className="media-tile"><Poster hue={s.hue} label={formatDate(s.date, { month: 'short', day: 'numeric' })} /></div>
-        ))}</Carousel>
+        <div className="past-gigs pad-x">{past.map(s => {
+          const media = fanMedia.filter(m => m.showId === s.id)
+          return (
+            <div key={s.id} className="past-gig">
+              <div className="row between center-v"><b>{s.title}</b><span className="muted small">{formatDate(s.date, { month: 'short', day: 'numeric' })}</span></div>
+              <div className="muted small">{cat.venue(s.venueId).name}</div>
+              {media.length > 0 && <div className="past-gig-media">{media.map(m => <MediaTile key={m.id} media={m} />)}</div>}
+            </div>
+          )
+        })}</div>
       ) : <Empty>No past shows on EarPlug yet.</Empty>}
       <div style={{ height: 32 }} />
 
