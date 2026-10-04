@@ -147,7 +147,6 @@ export default function GetBooked() {
           <Logo size={40} />
           <GlassButton aria-label="Close" onClick={() => nav(-1)}><Close size={16} /></GlassButton>
         </div>
-        <div className="eyebrow">Get Booked</div>
         <h1 className="setup-title">{cur.title}</h1>
         <div className="progress"><div style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
       </div>

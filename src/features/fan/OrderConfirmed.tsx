@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { GlassButton } from '../../components/ui'
-import { Calendar, Check, Close, Send } from '../../components/icons'
+import { Calendar, Check, Close, UserPlus } from '../../components/icons'
 import { useCatalog } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { downloadIcs } from '../../state/ticketing'
@@ -42,7 +42,7 @@ export default function OrderConfirmed() {
 
         <div className="row gap confirm-actions">
           <button className="ghost-pill" onClick={() => downloadIcs(show, v)}><Calendar size={16} /> Add to calendar</button>
-          <button className="ghost-pill" onClick={() => share(show.title, `I’m going to ${show.title} at ${v.name}. Come with!`, `${location.origin}/show/${show.id}`)}><Send size={16} /> Invite friends</button>
+          <button className="ghost-pill" onClick={() => share(show.title, `I’m going to ${show.title} at ${v.name}. Come with!`, `${location.origin}/show/${show.id}`)}><UserPlus size={16} /> Invite friends</button>
         </div>
       </div>
       <div className="flow-footer">

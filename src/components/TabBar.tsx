@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useStore } from '../state/store'
 import { haptic } from '../lib/native'
-import { Calendar, Home, PlugIcon, Plus, Search, TicketIcon, User } from './icons'
+import { CalendarFill, Home, PlugIcon, PlusSquare, Search, TicketIcon, User } from './icons'
 
-interface Tab { to: string; label: string; icon: React.ReactNode; end?: boolean }
+interface Tab { to: string; label: string; icon: ReactNode; end?: boolean }
 
 /**
  * Floating glass tab bar from the Figma.
@@ -17,8 +18,8 @@ export function TabBar() {
   const tabs: Tab[] = p.role === 'musician'
     ? [
         { to: '/explore', label: 'Home', icon: <Home size={28} /> },
-        { to: '/gigs', label: 'Gigs', icon: <Calendar size={24} /> },
-        { to: '/host/new', label: 'New show', icon: <Plus size={24} /> },
+        { to: '/gigs', label: 'Gigs', icon: <CalendarFill size={24} /> },
+        { to: '/host/new', label: 'New show', icon: <PlusSquare size={26} /> },
         { to: '/profile', label: 'Profile', icon: avatar },
       ]
     : [

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Empty } from '../../components/ui'
-import { ChevronLeft, ChevronRight, Edit, QrIcon, Share } from '../../components/icons'
+import { ChevronLeft, ChevronRight, ScanIcon } from '../../components/icons'
 import { appStatus, offerDate, useCatalog, useNow } from '../../state/catalog'
 import { useStore } from '../../state/store'
 import { ordersFor, salesSummary } from '../../state/ticketing'
@@ -15,12 +14,16 @@ type Entry =
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 const WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+// "7:30" / "9:15" style times used in the Figma's day card.
+const short = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/ [AP]M$/, '')
+const hhmm = (t?: string) => (t ? new Date(`2000-01-01T${t}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '')
 
-/** "My shows": month calendar of confirmed gigs, drafts and pending applications. */
+/** "My shows" (Gigs Page 2 – Artist): month calendar + the selected day's shows. */
 export default function MyShows() {
   const now = useNow(5000)
   const { state } = useStore()
   const today = new Date()
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
 
   const entries = useMemo<Entry[]>(() => {
     const shows: Entry[] = state.myShows.filter(s => !s.cancelled).map(s => ({ kind: 'show', date: new Date(s.date), show: s, status: s.draft ? 'Draft' : 'Confirmed' }))
@@ -31,30 +34,30 @@ export default function MyShows() {
     return [...shows, ...apps].sort((a, b) => a.date.getTime() - b.date.getTime())
   }, [state.myShows, state.applications, now])
 
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
-  const next = entries.find(e => e.date.getTime() >= startOfToday)
-  const [month, setMonth] = useState(() => { const d = next?.date ?? new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
-  const [selected, setSelected] = useState<string>(() => dayKey(next?.date ?? new Date()))
+  const firstUpcoming = entries.find(e => e.date.getTime() >= startOfToday)
+  const [month, setMonth] = useState(() => { const d = firstUpcoming?.date ?? today; return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [selected, setSelected] = useState(() => dayKey(firstUpcoming?.date ?? today))
 
   const byDay = new Map<string, Entry[]>()
   for (const e of entries) byDay.set(dayKey(e.date), [...(byDay.get(dayKey(e.date)) ?? []), e])
 
-  const first = new Date(month.getFullYear(), month.getMonth(), 1)
+  const lead = new Date(month.getFullYear(), month.getMonth(), 1).getDay()
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
-  const cells: (Date | null)[] = [...Array(first.getDay()).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))]
-  const selectedEntries = byDay.get(selected) ?? []
-  const selectedDate = cells.find(d => d && dayKey(d) === selected) ?? entries.find(e => dayKey(e.date) === selected)?.date
-  const monthEntries = entries.filter(e => e.date.getMonth() === month.getMonth() && e.date.getFullYear() === month.getFullYear() && dayKey(e.date) !== selected)
+  const cells: (Date | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))]
+  const selectedDate = (() => { const [y, m, d] = selected.split('-').map(Number); return new Date(y, m, d) })()
+  const dayEntries = byDay.get(selected) ?? []
+  const later = entries.filter((e): e is Extract<Entry, { kind: 'show' }> =>
+    e.kind === 'show' && e.status === 'Confirmed' && e.date.getMonth() === month.getMonth() && e.date.getFullYear() === month.getFullYear() && dayKey(e.date) !== selected)
   const shift = (n: number) => setMonth(m => new Date(m.getFullYear(), m.getMonth() + n, 1))
 
   return (
     <div className="pad-x">
-      <div className="cal-card">
+      <section className="cal-card" aria-label="Calendar">
         <div className="row between center-v cal-head">
-          <b>{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</b>
+          <h2>{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
           <div className="row gap-sm">
-            <button className="glass-btn" style={{ width: 30, height: 30 }} aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeft size={16} /></button>
-            <button className="glass-btn" style={{ width: 30, height: 30 }} aria-label="Next month" onClick={() => shift(1)}><ChevronRight size={16} /></button>
+            <button className="cal-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeft size={16} /></button>
+            <button className="cal-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRight size={16} /></button>
           </div>
         </div>
         <div className="cal-grid">
@@ -63,85 +66,82 @@ export default function MyShows() {
             if (!d) return <span key={i} />
             const k = dayKey(d)
             const es = byDay.get(k) ?? []
-            const isToday = k === dayKey(new Date())
+            const confirmed = es.some(e => e.status === 'Confirmed')
+            const cls = ['cal-day', k === selected && 'sel', k === dayKey(today) && 'today', d.getTime() < startOfToday && 'past'].filter(Boolean).join(' ')
             return (
-              <button key={i} className={`cal-day${k === selected ? ' sel' : ''}${isToday ? ' today' : ''}`} onClick={() => setSelected(k)} aria-label={d.toDateString()}>
-                {d.getDate()}
-                <span className="cal-dots">
-                  {es.some(e => e.status === 'Confirmed') && <i className="dot-blue" />}
-                  {es.some(e => e.status !== 'Confirmed') && <i className="dot-gray" />}
-                </span>
+              <button key={i} className={cls} onClick={() => setSelected(k)} aria-label={d.toDateString()} aria-pressed={k === selected}>
+                <span className="cal-num">{d.getDate()}</span>
+                <span className="cal-dot">{es.length > 0 && <i className={confirmed ? 'dot-blue' : 'dot-gray'} />}</span>
               </button>
             )
           })}
         </div>
         <div className="cal-legend"><span><i className="dot-blue" /> Confirmed</span><span><i className="dot-gray" /> Pending / draft</span></div>
-      </div>
+      </section>
 
-      {selectedDate && <h2 className="day-title">{selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</h2>}
-      {selectedEntries.length ? selectedEntries.map(e => <EntryCard key={e.kind === 'show' ? e.show.id : e.app.id} entry={e} now={now} />)
-        : <Empty>Nothing on this day. <Link to="/host/new" className="link">Create a show</Link></Empty>}
+      <h2 className="day-title">{selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</h2>
+      {dayEntries.length
+        ? dayEntries.map(e => <DayCard key={e.kind === 'show' ? e.show.id : e.app.id} entry={e} now={now} />)
+        : <p className="muted small day-empty">No shows this day.</p>}
 
-      {monthEntries.length > 0 && (
+      {later.length > 0 && (
         <>
           <h2 className="day-title">This month</h2>
-          {monthEntries.map(e => <EntryCard key={e.kind === 'show' ? e.show.id : e.app.id} entry={e} now={now} compact />)}
+          <div className="month-list">
+            {later.map(e => (
+              <button key={e.show.id} className="month-row" onClick={() => setSelected(dayKey(e.date))}>
+                <span className="month-date"><small>{formatDate(e.show.date, { weekday: 'short' }).toUpperCase()}</small><b>{e.date.getDate()}</b></span>
+                <span className="grow min0 left"><b className="ellipsis block">{e.show.title}</b><span className="muted small">{formatTime(e.show.date)}</span></span>
+                <ChevronRight size={14} />
+              </button>
+            ))}
+          </div>
         </>
-      )}
-      {!entries.length && (
-        <Link to="/host/new" className="host-cta">
-          <b>Plan your first show</b>
-          <span className="muted small">Host your own gig and sell tickets, or apply to open gigs in Find gigs.</span>
-          <span className="small-pill white">+ New show</span>
-        </Link>
       )}
     </div>
   )
 }
 
-function EntryCard({ entry, now, compact }: { entry: Entry; now: number; compact?: boolean }) {
-    const nav = useNavigate()
-    const cat = useCatalog()
-    const { state } = useStore()
-    if (entry.kind === 'app') {
-      const v = cat.venue(entry.app.venueId)
-      return (
-        <Link to={`/bookings/${entry.app.id}`} className="show-entry pending">
-          <div className="row between center-v"><b>{entry.app.actName} @ {v.name}</b><span className={`entry-pill ${entry.status === 'Offer' ? 'offer' : 'pending'}`}>{entry.status === 'Offer' ? 'Offer' : 'Pending'}</span></div>
-          <div className="muted small">{v.name} · {formatTime(entry.date.toISOString())}{compact ? ` · ${formatDate(entry.date.toISOString(), { month: 'short', day: 'numeric' })}` : ''}</div>
-          {!compact && <div className="small">{entry.status === 'Offer' ? 'The venue made an offer. Tap to accept.' : 'Waiting on the venue to reply.'}</div>}
-        </Link>
-      )
-    }
-    const s = entry.show
-    const v = cat.venue(s.venueId)
-    const title = s.bandIds.map(id => cat.band(id)?.name).filter(Boolean).join(' + ')
-    const sum = s.hostedByMe ? salesSummary(s, v, ordersFor(s, v, state.tickets, now)) : null
-    const hhmm = (t?: string) => t ? new Date(`2000-01-01T${t}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null
+function DayCard({ entry, now }: { entry: Entry; now: number }) {
+  const nav = useNavigate()
+  const cat = useCatalog()
+  const { state } = useStore()
+
+  if (entry.kind === 'app') {
+    const v = cat.venue(entry.app.venueId)
     return (
-      <div className={`show-entry${entry.status === 'Draft' ? ' draft' : ''}`}>
-        <Link to={`/host/${s.id}`} className="block">
-          <div className="row between center-v"><b>{title || s.title}</b><span className={`entry-pill ${entry.status === 'Draft' ? 'draft' : 'confirmed'}`}>{entry.status}</span></div>
-          <div className="muted small">{v.name} · {formatTime(s.date)}{compact ? ` · ${formatDate(s.date, { month: 'short', day: 'numeric' })}` : ''}</div>
-          {!compact && (sum ? (
-            <>
-              <div className="row between small sold-line"><span className="muted">Tickets sold</span><b>{sum.sold} / {sum.capacity} · {money(sum.revenue)}</b></div>
-              <div className="bar"><div style={{ width: `${sum.pct}%` }} /></div>
-            </>
-          ) : <div className="muted small sold-line">Ticketed by {v.name}</div>)}
-          {!compact && (
-            <div className="small times">
-              Doors {formatTime(s.date)}{s.loadIn ? ` · Load-in ${hhmm(s.loadIn)}` : ''}{s.setTime ? ` · You headline at ${hhmm(s.setTime)}` : ''}
-            </div>
-          )}
-        </Link>
-        {!compact && (
-          <div className="entry-actions">
-            <button onClick={() => nav(`/host/${s.id}/edit`)} disabled={!s.createdByMe}><Edit size={14} /> Edit</button>
-            <button onClick={() => share(s.title, `${s.title} at ${v.name}`, `${location.origin}/show/${s.id}`)} disabled={!!s.draft}><Share size={14} /> Share</button>
-            <button className="scan" onClick={() => nav(`/host/${s.id}/door`)} disabled={!s.hostedByMe || !!s.draft}><QrIcon size={15} /> Scan</button>
-          </div>
-        )}
-      </div>
+      <Link to={`/bookings/${entry.app.id}`} className="day-card">
+        <div className="row between center-v"><b className="day-card-title">{entry.app.actName} @ {v.name}</b><span className={`entry-pill ${entry.status === 'Offer' ? 'offer' : 'pending'}`}>{entry.status}</span></div>
+        <div className="day-card-sub">{v.name} · {formatTime(entry.date.toISOString())}</div>
+        <div className="day-card-times">{entry.status === 'Offer' ? 'Offer received · tap to review and accept' : 'Application sent · waiting on the venue'}</div>
+      </Link>
     )
+  }
+
+  const s = entry.show
+  const v = cat.venue(s.venueId)
+  const title = s.bandIds.map(id => cat.band(id)?.name).filter(Boolean).join(' + ') || s.title
+  const sum = s.hostedByMe && !s.draft ? salesSummary(s, v, ordersFor(s, v, state.tickets, now)) : null
+  const times = [`Doors ${short(new Date(s.date))}`, s.loadIn && `Load-in ${hhmm(s.loadIn)}`, s.setTime && `You headline at ${short(new Date(`2000-01-01T${s.setTime}`))}`].filter(Boolean).join(' · ')
+
+  return (
+    <div className="day-card">
+      <Link to={`/host/${s.id}`} className="block">
+        <div className="row between center-v"><b className="day-card-title">{title}</b><span className={`entry-pill ${entry.status === 'Draft' ? 'draft' : 'confirmed'}`}>{entry.status}</span></div>
+        <div className="day-card-sub">{v.name} · {formatTime(s.date)}</div>
+        {sum ? (
+          <>
+            <div className="row between center-v day-card-sold"><span>Tickets sold</span><b>{sum.sold} / {sum.capacity} · {money(sum.revenue)}</b></div>
+            <div className="day-bar"><div style={{ width: `${sum.pct}%` }} /></div>
+          </>
+        ) : !s.draft && <div className="row between center-v day-card-sold"><span>Tickets</span><b>Sold by {v.name}</b></div>}
+        <div className="day-card-times">{times}</div>
+      </Link>
+      <div className="day-actions">
+        <button onClick={() => nav(`/host/${s.id}/edit`)}>Edit</button>
+        <button onClick={() => share(s.title, `${s.title} at ${v.name}`, `${location.origin}/show/${s.id}`)} disabled={!!s.draft}>Share</button>
+        <button className="scan" onClick={() => nav(`/host/${s.id}/door`)} disabled={!s.hostedByMe || !!s.draft}><ScanIcon /> Scan</button>
+      </div>
+    </div>
+  )
 }

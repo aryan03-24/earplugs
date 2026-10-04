@@ -28,7 +28,6 @@ export default function RolePick() {
             <button key={role} className="role-option" onClick={() => pick(role)}>
               <span className="role-label">{label}</span>
               <span className="role-circle">{icon}</span>
-              <span className="muted small">{role === 'fan' ? 'Find shows near you' : 'Get booked & sell tickets'}</span>
             </button>
           ))}
         </div>

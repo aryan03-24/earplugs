@@ -1,8 +1,7 @@
 // Ticketing rules shared by the fan checkout and the musician's gig dashboard.
 import type { Order, Show, Ticket, TicketTier, Venue } from '../types'
 
-export const SERVICE_FEE_RATE = 0.08
-export const PER_TICKET_FEE = 0.99
+export const SERVICE_FEE_RATE = 0
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -12,8 +11,9 @@ export function tiersFor(show: Show, venue: Venue): TicketTier[] {
   return [{ id: 'ga', name: show.price === 0 ? 'Free RSVP' : 'General Admission', price: show.price, qty: venue.capacity }]
 }
 
+/** The Figma checkout shows the ticket price as the total, so fees are currently zero. */
 export function feesFor(unitPrice: number, qty: number) {
-  return unitPrice === 0 ? 0 : round2(qty * (PER_TICKET_FEE + unitPrice * SERVICE_FEE_RATE))
+  return unitPrice === 0 ? 0 : round2(qty * unitPrice * SERVICE_FEE_RATE)
 }
 
 export function ticketCode() {

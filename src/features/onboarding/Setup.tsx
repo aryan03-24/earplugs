@@ -99,7 +99,7 @@ export default function Setup() {
         {step === 'photo' && (
           <div className="stack center">
             <label className="photo-picker" aria-label="Upload profile picture">
-              {p.photo ? <img src={p.photo} alt="" /> : <Plus size={36} />}
+              {p.photo ? <img src={p.photo} alt="" /> : <Plus size={30} className="photo-plus" />}
               <input type="file" accept="image/*" hidden onChange={async e => {
                 const f = e.target.files?.[0]
                 if (f) set({ photo: await resizeImage(f, 400) })
@@ -119,9 +119,9 @@ export default function Setup() {
 
         {step === 'home' && (
           <>
-            <p className="setup-copy"><b>Home Base</b> is where you spend the most time. This can be your college town or home town.</p>
+            <p className="setup-copy plain"><b>Home Base</b> is where you spend the most time. This can be your college town or home town.</p>
             <LightField label="Home Base" value={p.homeBase} onChange={v => set({ homeBase: v })} placeholder="Berkeley, CA" autoFocus />
-            <p className="setup-copy">Any other place that’s your home away from home</p>
+            <p className="setup-copy plain">Any other place that’s your home away from home</p>
             <LightField label="Second Location (Optional)" value={p.secondLocation} onChange={v => set({ secondLocation: v })} placeholder="New York City, NY" />
           </>
         )}

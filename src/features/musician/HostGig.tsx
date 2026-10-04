@@ -80,10 +80,10 @@ export default function HostGig() {
         <>
           <label className="dark-field"><span>Date</span><input type="date" value={date} min={isoIn(0)} onChange={e => setDate(e.target.value)} /></label>
           <div className="row gap">
-            <label className="dark-field grow"><span>Load-in</span><input type="time" value={loadIn} onChange={e => setLoadIn(e.target.value)} /></label>
             <label className="dark-field grow"><span>Doors</span><input type="time" value={time} onChange={e => setTime(e.target.value)} /></label>
-            <label className="dark-field grow"><span>Your set</span><input type="time" value={setTime_} onChange={e => setSetTime(e.target.value)} /></label>
+            <label className="dark-field grow"><span>Load-in</span><input type="time" value={loadIn} onChange={e => setLoadIn(e.target.value)} /></label>
           </div>
+          <label className="dark-field"><span>You go on at</span><input type="time" value={setTime_} onChange={e => setSetTime(e.target.value)} /></label>
           <p className="muted small">Fans see the doors time. Load-in and your set time stay on your calendar.</p>
         </>
       ),
@@ -238,7 +238,6 @@ export default function HostGig() {
           <Logo size={40} />
           <GlassButton aria-label="Close" onClick={() => nav(-1)}><Close size={16} /></GlassButton>
         </div>
-        <div className="eyebrow">{existing ? 'Edit show' : 'New show'} · {step + 1} of {steps.length}</div>
         <h1 className="setup-title">{cur.title}</h1>
         <div className="progress"><div style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
       </div>
