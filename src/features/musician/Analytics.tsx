@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { GlassButton, Screen, Segmented } from '../../components/ui'
 import { ChevronRight, Close, Down, Sparkle, Up } from '../../components/icons'
 import { CITY_PERF, KEY_STATS, METRIC_LABEL, RANGES, RECENT_SHOWS, SERIES, VENUE_PERF, rate, type Metric, type Range } from '../../data/analytics'
-import { money } from '../../lib/format'
+import { formatDate, isPastDate, money } from '../../lib/format'
+import { useCatalog, useNow } from '../../state/catalog'
+import { useStore } from '../../state/store'
+import { ordersFor, salesSummary } from '../../state/ticketing'
 import { toast } from '../../lib/native'
 
 function Delta({ v, suffix = '' }: { v: number; suffix?: string }) {
@@ -19,6 +22,18 @@ export default function Analytics() {
   const [openRow, setOpenRow] = useState<string | null>(null)
   const [allShows, setAllShows] = useState(false)
   const a = KEY_STATS[range]
+  const cat = useCatalog()
+  const { state } = useStore()
+  const now = useNow(5000)
+  const live = state.myShows.filter(s => s.hostedByMe && !s.cancelled && !isPastDate(s.date)).map(s => {
+    const v = cat.venue(s.venueId)
+    return { s, sum: salesSummary(s, v, ordersFor(s, v, state.tickets, now)) }
+  })
+  const lagging = live.find(x => x.sum.pct < 50)
+  const insight = lagging
+    ? `${lagging.s.title} is ${lagging.sum.pct}% sold. Your Oakland fans convert 12 pts above average, so share it there first.`
+    : live.length ? `${live[0].s.title} is ${live[0].sum.pct}% sold. Keep the momentum: post the lineup and set times.`
+      : 'Your Oakland shows convert 12 pts above your average. Book there again.'
   const rows = (perf === 'City' ? CITY_PERF : VENUE_PERF).map(r => ({ ...r, rate: rate(r) })).sort((x, y) => y.rate - x.rate)
 
   const kpis: { m: Metric; label: string; value: string; sub: ReactNode }[] = [
@@ -59,8 +74,28 @@ export default function Analytics() {
 
         <div className="insight">
           <span className="why-ic"><Sparkle /></span>
-          <div><b>Insight</b><div className="small">Your Oakland shows convert 12 pts above your average. Book there again.</div></div>
+          <div><b>Insight</b><div className="small">{insight}</div></div>
         </div>
+
+        {live.length > 0 && (
+          <>
+            <div className="row between baseline">
+              <h2 className="sub-h">Live ticket sales</h2>
+              <Link to="/bookings" className="muted small">My Gigs ›</Link>
+            </div>
+            <div className="list-card">
+              {live.map(({ s, sum }) => (
+                <Link key={s.id} to={`/host/${s.id}`} className="perf-row">
+                  <div className="row between center-v">
+                    <div className="left min0"><b className="ellipsis">{s.title}</b><div className="muted small">{formatDate(s.date, { month: 'short', day: 'numeric' })} · {sum.sold}/{sum.capacity} sold</div></div>
+                    <div className="row center-v gap-sm"><b className="big">{money(sum.revenue)}</b><ChevronRight size={14} /></div>
+                  </div>
+                  <div className="bar"><div style={{ width: `${sum.pct}%` }} /></div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="row between baseline">
           <h2 className="sub-h">Where you’re winning</h2>

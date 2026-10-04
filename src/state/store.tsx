@@ -1,12 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Application, Profile, Show } from '../types'
+import type { Application, Profile, Role, Show, Ticket, Venue } from '../types'
 import { seedApplications } from '../data/seed'
-
-export interface Ticket {
-  showId: string
-  qty: number
-  purchasedAt: string
-}
 
 export interface BandEdits {
   bio: string
@@ -21,7 +15,9 @@ export interface State {
   following: string[] // band ids
   history: string[] // search terms
   media: string[] // fan media data URLs
-  myShows: Show[] // shows created or booked by the musician
+  myShows: Show[] // shows created, hosted or booked by the musician
+  customVenues: Venue[] // musician's own spots for self-hosted gigs
+  checkins: Record<string, string[]> // showId -> checked-in ticket codes
   applications: Application[]
   band: BandEdits // musician's own band page
 }
@@ -39,11 +35,13 @@ const EMPTY: State = {
   history: ['Tonight', 'Free', 'My Top Genres', 'Rock', 'YouthQuake', "eli's mile high club"],
   media: [],
   myShows: [],
+  customVenues: [],
+  checkins: {},
   applications: [],
   band: { bio: '', tagline: '', media: [] },
 }
 
-const KEY = 'earplug-state-v2'
+const KEY = 'earplug-state-v3'
 
 function load(): State {
   try {
@@ -61,21 +59,25 @@ type ListKey = 'saved' | 'following'
 export interface Actions {
   updateProfile: (p: Partial<Profile>) => void
   completeOnboarding: () => void
+  switchRole: (role: Role) => void
   toggle: (list: ListKey, id: string) => void
-  buyTicket: (showId: string, qty: number) => void
-  cancelTicket: (showId: string) => void
+  addTicket: (t: Ticket) => void
+  updateTicket: (id: string, patch: Partial<Ticket>) => void
+  removeTicket: (id: string) => void
   addHistory: (term: string) => void
   clearHistory: () => void
   addMedia: (dataUrl: string) => void
   updateBand: (b: Partial<BandEdits>) => void
   addShow: (s: Show) => void
-  removeShow: (id: string) => void
+  updateShow: (id: string, patch: Partial<Show>) => void
+  addVenue: (v: Venue) => void
+  toggleCheckin: (showId: string, code: string) => void
   submitApplication: (a: Application) => void
   updateApplication: (id: string, patch: Partial<Application>) => void
   reset: () => void
 }
 
-const StoreContext = createContext<{ state: State } & Actions | null>(null)
+const StoreContext = createContext<({ state: State } & Actions) | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(load)
@@ -92,18 +94,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       applications: s.profile.role === 'musician' && !s.applications.length ? seedApplications(s.profile.artistName || 'My Band') : s.applications,
       band: { ...s.band, tagline: s.band.tagline || s.profile.tagline },
     })),
-    toggle: (list, id) => setState(s => ({ ...s, [list]: s[list].includes(id) ? s[list].filter(x => x !== id) : [...s[list], id] })),
-    buyTicket: (showId, qty) => setState(s => ({
+    // Demo helper: try the other persona without losing data (e.g. buy a ticket to your own gig).
+    switchRole: role => setState(s => ({
       ...s,
-      tickets: [...s.tickets.filter(t => t.showId !== showId), { showId, qty, purchasedAt: new Date().toISOString() }],
+      profile: { ...s.profile, role, artistName: s.profile.artistName || (role === 'musician' ? `${s.profile.firstName || 'My'} Band` : '') },
+      applications: role === 'musician' && !s.applications.length ? seedApplications(s.profile.artistName || 'My Band') : s.applications,
     })),
-    cancelTicket: showId => setState(s => ({ ...s, tickets: s.tickets.filter(t => t.showId !== showId) })),
+    toggle: (list, id) => setState(s => ({ ...s, [list]: s[list].includes(id) ? s[list].filter(x => x !== id) : [...s[list], id] })),
+    addTicket: t => setState(s => ({ ...s, tickets: [...s.tickets, t] })),
+    updateTicket: (id, patch) => setState(s => ({ ...s, tickets: s.tickets.map(t => (t.id === id ? { ...t, ...patch } : t)) })),
+    removeTicket: id => setState(s => ({ ...s, tickets: s.tickets.filter(t => t.id !== id) })),
     addHistory: term => setState(s => ({ ...s, history: [term, ...s.history.filter(h => h.toLowerCase() !== term.toLowerCase())].slice(0, 10) })),
     clearHistory: () => setState(s => ({ ...s, history: [] })),
     addMedia: url => setState(s => ({ ...s, media: [url, ...s.media] })),
     updateBand: b => setState(s => ({ ...s, band: { ...s.band, ...b } })),
     addShow: show => setState(s => ({ ...s, myShows: [...s.myShows, show] })),
-    removeShow: id => setState(s => ({ ...s, myShows: s.myShows.filter(x => x.id !== id) })),
+    updateShow: (id, patch) => setState(s => ({ ...s, myShows: s.myShows.map(x => (x.id === id ? { ...x, ...patch } : x)) })),
+    addVenue: v => setState(s => ({ ...s, customVenues: [...s.customVenues, v] })),
+    toggleCheckin: (showId, code) => setState(s => {
+      const list = s.checkins[showId] ?? []
+      return { ...s, checkins: { ...s.checkins, [showId]: list.includes(code) ? list.filter(c => c !== code) : [...list, code] } }
+    }),
     submitApplication: a => setState(s => ({ ...s, applications: [a, ...s.applications] })),
     updateApplication: (id, patch) => setState(s => ({ ...s, applications: s.applications.map(a => (a.id === id ? { ...a, ...patch } : a)) })),
     reset: () => setState(EMPTY),

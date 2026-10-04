@@ -6,14 +6,19 @@ import { useStore } from '../../state/store'
 import { formatDate, formatTime, isPastDate, shortDate, timeAgo } from '../../lib/format'
 import type { Application, ApplicationStatus } from '../../types'
 import { useAcceptOffer } from './useAcceptOffer'
+import { HostingList } from './HostingList'
 
 const TABS = ['Applications', 'Calendar', 'Offers', 'Messages Sent'] as const
 type Tab = (typeof TABS)[number]
 const STATUS_FILTERS: (ApplicationStatus | 'All')[] = ['All', 'Not reviewed', 'Under review', 'Offered', 'Booked', 'Declined']
 
-/** "My Applications" from the Figma, adapted for mobile with the four sidebar sections as tabs. */
+/**
+ * Musician's gigs hub. "Hosting" = gigs they run and sell tickets for themselves.
+ * "Booking" = the Figma's "My Applications" with its four sidebar sections as tabs.
+ */
 export default function Bookings() {
   const [params, setParams] = useSearchParams()
+  const view = params.get('view') === 'booking' || params.has('tab') || params.has('status') ? 'Booking' : 'Hosting'
   const tab = (TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as Tab) : 'Applications'
   const filter = (params.get('status') as ApplicationStatus | 'All') || 'All'
   const now = useNow(5000)
@@ -25,16 +30,17 @@ export default function Bookings() {
   const apps = state.applications.map(a => ({ a, status: appStatus(a, now) }))
   const offers = apps.filter(x => x.status === 'Offered')
   const myShows = cat.showsFor(MY_BAND_ID).filter(s => !isPastDate(s.date))
-  const setTab = (t: Tab) => setParams(t === 'Applications' ? {} : { tab: t })
+  const setTab = (t: Tab) => setParams(t === 'Applications' ? { view: 'booking' } : { tab: t })
 
   return (
     <Screen tabs>
-      <PageHeader title="My Applications" right={
-        <div className="row gap-sm">
-          <Link to="/bookings/new-show" className="small-pill"><Plus size={12} /> Show</Link>
-          <Link to="/bookings/apply" className="small-pill white">Get Booked</Link>
-        </div>
+      <PageHeader title={view === 'Hosting' ? 'My Gigs' : 'My Applications'} right={
+        view === 'Hosting'
+          ? <Link to="/host/new" className="small-pill white"><Plus size={12} /> Host a Gig</Link>
+          : <Link to="/bookings/apply" className="small-pill white">Get Booked</Link>
       } />
+      <div className="pad-x"><Segmented options={['Hosting', 'Booking'] as const} value={view} onChange={v => setParams(v === 'Booking' ? { view: 'booking' } : {})} full /></div>
+      {view === 'Hosting' ? <HostingList /> : <>
       <div className="tab-scroller">
         <Segmented options={TABS} value={tab} onChange={setTab} labels={{ Offers: `Offers${offers.length ? ` (${offers.length})` : ''}`, 'Messages Sent': 'Messages' }} />
       </div>
@@ -43,7 +49,7 @@ export default function Bookings() {
         <>
           <div className="chip-row padded">
             {STATUS_FILTERS.map(s => (
-              <Chip key={s} active={filter === s} onClick={() => setParams(s === 'All' ? {} : { status: s })}>{s}</Chip>
+              <Chip key={s} active={filter === s} onClick={() => setParams(s === 'All' ? { view: 'booking' } : { status: s })}>{s}</Chip>
             ))}
           </div>
           <div className="app-list pad-x">
@@ -74,7 +80,7 @@ export default function Bookings() {
                 </Link>
               ))}
             </div>
-          ) : <Empty>No booked shows yet. Accept an offer or add a show.</Empty>}
+          ) : <Empty>No booked shows yet. Accept an offer or host a gig.</Empty>}
 
           <h2 className="sub-h">Holds & target dates</h2>
           <div className="list-card">
@@ -110,6 +116,7 @@ export default function Bookings() {
           </div>
         </div>
       )}
+      </>}
     </Screen>
   )
 }

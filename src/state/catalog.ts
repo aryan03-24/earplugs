@@ -9,7 +9,8 @@ export const MY_BAND_ID = 'me'
 
 export function myBand(state: State): Band | null {
   const p = state.profile
-  if (p.role !== 'musician') return null
+  // Kept in fan view too (demo persona switch) so self-hosted gigs still show their headliner.
+  if (p.role !== 'musician' && !p.artistName) return null
   return {
     id: MY_BAND_ID,
     name: p.artistName || 'My Band',
@@ -29,14 +30,17 @@ export function useCatalog() {
   return useMemo(() => {
     const mine = myBand(state)
     const bands = mine ? [mine, ...BANDS] : BANDS
-    const shows = [...SHOWS, ...state.myShows]
-    const venue = (id: string): Venue => VENUES.find(v => v.id === id) ?? VENUES[0]
+    const shows = [...SHOWS, ...state.myShows.filter(s => !s.cancelled)]
+    const venues = [...VENUES, ...state.customVenues]
+    const venue = (id: string): Venue => venues.find(v => v.id === id) ?? VENUES[0]
     const band = (id: string) => bands.find(b => b.id === id)
     const show = (id: string) => shows.find(s => s.id === id)
     const upcoming = shows.filter(s => !isPastDate(s.date)).sort((a, b) => a.date.localeCompare(b.date))
     const showsFor = (bandId: string) => shows.filter(s => s.bandIds.includes(bandId)).sort((a, b) => a.date.localeCompare(b.date))
     const showsAt = (venueId: string) => upcoming.filter(s => s.venueId === venueId)
-    return { bands, shows, upcoming, venues: VENUES, venue, band, show, showsFor, showsAt, myBand: mine }
+    const show_ = (id: string) => show(id) ?? state.myShows.find(s => s.id === id) // includes cancelled, for managers
+    const hosted = state.myShows.filter(s => s.hostedByMe || s.createdByMe).sort((a, b) => a.date.localeCompare(b.date))
+    return { bands, shows, upcoming, venues: VENUES, allVenues: venues, venue, band, show, anyShow: show_, showsFor, showsAt, hosted, myBand: mine }
   }, [state])
 }
 

@@ -78,7 +78,7 @@ export default function BandPage() {
         </Carousel>
       ) : <Empty>{mine ? 'Add photos or clips so fans and venues can hear you.' : 'No clips yet.'}</Empty>}
 
-      <SectionHeader title="Upcoming Shows" action={mine && <Link to="/bookings/new-show" className="link small">+ Add show</Link>} />
+      <SectionHeader title="Upcoming Shows" action={mine && <Link to="/host/new" className="link small">+ Host a gig</Link>} />
       {upcoming.length ? (
         <Carousel>{upcoming.map(s => (
           <Link key={s.id} to={`/show/${s.id}`} className="media-tile">

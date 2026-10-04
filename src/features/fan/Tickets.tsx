@@ -1,27 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import QRCode from 'qrcode'
-import { Empty, PageHeader, Poster, Screen, Segmented, Sheet } from '../../components/ui'
+import { Empty, PageHeader, Poster, Screen, Segmented } from '../../components/ui'
 import { useCatalog } from '../../state/catalog'
-import { useStore, type Ticket } from '../../state/store'
-import { formatTime, isPastDate, priceText, shortDate } from '../../lib/format'
-import { toast } from '../../lib/native'
+import { useStore } from '../../state/store'
+import { formatTime, isPastDate, shortDate } from '../../lib/format'
 
 const TABS = ['Upcoming', 'Past'] as const
 
+/** Ticket wallet. Each card opens the full ticket pass. */
 export default function Tickets() {
   const cat = useCatalog()
-  const { state, cancelTicket } = useStore()
+  const { state } = useStore()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Upcoming')
-  const [open, setOpen] = useState<Ticket | null>(null)
 
   const rows = state.tickets
-    .map(t => ({ t, show: cat.show(t.showId) }))
-    .filter((r): r is { t: Ticket; show: NonNullable<typeof r.show> } => !!r.show)
+    .map(t => ({ t, show: cat.anyShow(t.showId) }))
+    .filter((r): r is { t: typeof r.t; show: NonNullable<typeof r.show> } => !!r.show)
     .filter(r => (tab === 'Past') === isPastDate(r.show.date))
     .sort((a, b) => a.show.date.localeCompare(b.show.date))
-
-  const openShow = open ? cat.show(open.showId) : undefined
 
   return (
     <Screen tabs>
@@ -30,46 +26,24 @@ export default function Tickets() {
       <div className="ticket-list pad-x">
         {rows.length ? rows.map(({ t, show }) => {
           const v = cat.venue(show.venueId)
+          const checked = state.checkins[show.id]?.includes(t.code)
           return (
-            <button key={show.id} className="ticket-card" onClick={() => setOpen(t)}>
-              <Poster hue={show.hue} className="ticket-art" photo={cat.band(show.bandIds[0])?.photo} />
+            <Link key={t.id} to={`/tickets/${t.id}`} className={`ticket-card${t.transferredTo || show.cancelled ? ' faded' : ''}`}>
+              <Poster hue={show.hue} className="ticket-art" photo={show.poster ?? cat.band(show.bandIds[0])?.photo} />
               <div className="ticket-body">
                 <b>{show.title}</b>
                 <span className="muted small">{v.name}</span>
                 <span className="small">{shortDate(show.date)} · {formatTime(show.date)}</span>
-                <span className="ticket-qty">{t.qty} × {show.price === 0 ? 'RSVP' : 'GA'}</span>
+                <span className="ticket-qty">
+                  {show.cancelled ? 'Cancelled · refunded' : t.transferredTo ? `Sent to ${t.transferredTo}` : checked ? '✓ Checked in' : `${t.qty} × ${t.tierName}`}
+                </span>
               </div>
-            </button>
+            </Link>
           )
         }) : (
           <Empty>{tab === 'Upcoming' ? <>No tickets yet. <Link to="/explore" className="link">Find a show</Link></> : 'Shows you’ve been to will show up here.'}</Empty>
         )}
       </div>
-
-      <Sheet open={!!open && !!openShow} onClose={() => setOpen(null)} title={openShow?.title}>
-        {open && openShow && (
-          <>
-            <p className="muted">{cat.venue(openShow.venueId).name} · {shortDate(openShow.date)} · Doors {formatTime(openShow.date)}</p>
-            <QR value={`EARPLUG:${openShow.id}:${open.purchasedAt}`} />
-            <div className="row between sheet-row"><span>Admits</span><b>{open.qty}</b></div>
-            <div className="row between sheet-row"><span>Price</span><b>{priceText(openShow.price * open.qty)}</b></div>
-            <Link to={`/show/${openShow.id}`} className="secondary-btn" onClick={() => setOpen(null)}>View show</Link>
-            {!isPastDate(openShow.date) && (
-              <button className="danger-btn" onClick={() => { cancelTicket(openShow.id); setOpen(null); toast(openShow.price ? 'Tickets refunded' : 'RSVP cancelled') }}>
-                {openShow.price ? 'Request refund' : 'Cancel RSVP'}
-              </button>
-            )}
-          </>
-        )}
-      </Sheet>
     </Screen>
   )
-}
-
-function QR({ value }: { value: string }) {
-  const [src, setSrc] = useState('')
-  useEffect(() => {
-    QRCode.toDataURL(value, { margin: 1, width: 440, color: { dark: '#000000', light: '#ffffff' } }).then(setSrc).catch(() => setSrc(''))
-  }, [value])
-  return <div className="qr">{src && <img src={src} alt="Ticket QR code" />}<span className="muted small">Show this at the door</span></div>
 }

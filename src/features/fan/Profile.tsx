@@ -13,7 +13,7 @@ import { resizeImage, toast } from '../../lib/native'
 export default function Profile() {
   const nav = useNavigate()
   const cat = useCatalog()
-  const { state, updateProfile, addMedia, reset } = useStore()
+  const { state, updateProfile, addMedia, reset, switchRole } = useStore()
   const p = state.profile
   const [editing, setEditing] = useState(false)
   const [settings, setSettings] = useState(false)
@@ -125,6 +125,12 @@ export default function Profile() {
         </label>
         <div className="row between sheet-row"><span>Phone</span><span className="muted">{p.phone || '—'}</span></div>
         <div className="row between sheet-row"><span>Account type</span><span className="muted">{p.role === 'musician' ? 'Musician' : 'Fan'}</span></div>
+        <button className="secondary-btn" onClick={() => {
+          const to = p.role === 'musician' ? 'fan' : 'musician'
+          switchRole(to); setSettings(false); toast(`Now viewing as a ${to}`)
+          nav(to === 'musician' ? '/analytics' : '/explore', { replace: true })
+        }}>Switch to {p.role === 'musician' ? 'Fan' : 'Musician'} view (demo)</button>
+        <p className="muted small">Keeps your data, so you can host a gig as a musician and buy a ticket to it as a fan.</p>
         <button className="danger-btn" onClick={() => { reset(); nav('/', { replace: true }) }}>Sign out & reset demo</button>
       </Sheet>
     </Screen>

@@ -10,6 +10,8 @@ export interface Venue {
   capacity: number
   ages: string
   hue: number
+  /** Created by a musician for a self-hosted gig (house show, backyard, etc.). */
+  custom?: boolean
 }
 
 export interface Band {
@@ -36,6 +38,51 @@ export interface Show {
   hue: number
   plugging: number // friends going
   createdByMe?: boolean
+  /** Musician-hosted gig fields */
+  hostedByMe?: boolean
+  description?: string
+  poster?: string // data URL
+  tiers?: TicketTier[]
+  publishedAt?: string
+  salesPaused?: boolean
+  cancelled?: boolean
+  announcements?: { text: string; at: string }[]
+}
+
+export interface TicketTier {
+  id: string
+  name: string
+  price: number // 0 = free RSVP
+  qty: number
+  note?: string
+}
+
+/** A fan's ticket (or RSVP) for a show. */
+export interface Ticket {
+  id: string
+  code: string // shown as QR, checked at the door
+  showId: string
+  tierId: string
+  tierName: string
+  qty: number
+  unitPrice: number
+  fees: number
+  holder: string
+  purchasedAt: string
+  payment: 'apple-pay' | 'card' | 'free'
+  transferredTo?: string
+}
+
+/** One order on a hosted gig, as the musician sees it. */
+export interface Order {
+  code: string
+  name: string
+  tierId: string
+  tierName: string
+  qty: number
+  total: number
+  at: string
+  mine?: boolean // bought on this device by the fan persona
 }
 
 export interface Friend {

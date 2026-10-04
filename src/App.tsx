@@ -18,7 +18,10 @@ const Pitch = lazy(() => import('./features/musician/Pitch'))
 const Bookings = lazy(() => import('./features/musician/Bookings'))
 const ApplicationDetail = lazy(() => import('./features/musician/ApplicationDetail'))
 const GetBooked = lazy(() => import('./features/musician/GetBooked'))
-const NewShow = lazy(() => import('./features/musician/NewShow'))
+const HostGig = lazy(() => import('./features/musician/HostGig'))
+const GigDashboard = lazy(() => import('./features/musician/GigDashboard'))
+const DoorCheckin = lazy(() => import('./features/musician/DoorCheckin'))
+const TicketPass = lazy(() => import('./features/fan/TicketPass'))
 
 /** Requires a finished onboarding, and optionally a specific persona. */
 function Guard({ children, role }: { children: ReactNode; role?: Role }) {
@@ -62,13 +65,17 @@ export default function App() {
             {/* Fan */}
             <Route path="/plugged" element={fan(<Plugged />)} />
             <Route path="/tickets" element={any(<Tickets />)} />
+            <Route path="/tickets/:id" element={any(<TicketPass />)} />
 
             {/* Musician */}
             <Route path="/analytics" element={musician(<Analytics />)} />
             <Route path="/pitch" element={musician(<Pitch />)} />
             <Route path="/bookings" element={musician(<Bookings />)} />
             <Route path="/bookings/apply" element={musician(<GetBooked />)} />
-            <Route path="/bookings/new-show" element={musician(<NewShow />)} />
+            <Route path="/bookings/new-show" element={<Navigate to="/host/new" replace />} />
+            <Route path="/host/new" element={musician(<HostGig />)} />
+            <Route path="/host/:id" element={musician(<GigDashboard />)} />
+            <Route path="/host/:id/door" element={musician(<DoorCheckin />)} />
             <Route path="/bookings/:id" element={musician(<ApplicationDetail />)} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
